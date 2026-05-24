@@ -230,6 +230,14 @@ if (document.getElementById('admin-panel')) {
             if (viewName === 'clients') adminApp.renderClients();
         },
 
+        // --- FUNCIONES DE UI ---
+        toggleMenu: () => {
+            const sidebar = document.querySelector('.admin-sidebar');
+            const overlay = document.querySelector('.sidebar-overlay');
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('active');
+        },
+
         // --- DASHBOARD ---
         loadDashboard: async () => {
             try {
@@ -560,13 +568,6 @@ if (document.getElementById('admin-panel')) {
         }
     };
 
-        // --- FUNCIONES DE UI ---
-        toggleMenu: () => {
-            const sidebar = document.querySelector('.admin-sidebar');
-            const overlay = document.querySelector('.sidebar-overlay');
-            sidebar.classList.toggle('open');
-            overlay.classList.toggle('active');
-        },
 
     window.adminApp = adminApp;
     document.addEventListener('DOMContentLoaded', adminApp.init);
