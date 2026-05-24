@@ -58,15 +58,27 @@
                 <div class="stats-grid">
                     <div class="stat-card">
                         <h3 id="stat-props">0</h3>
-                        <p>Propiedades</p>
+                        <p>Inmuebles Totales</p>
                     </div>
                     <div class="stat-card" style="border-color: var(--accent);">
                         <h3 id="stat-msgs">0</h3>
                         <p>Mensajes</p>
                     </div>
                     <div class="stat-card" style="border-color: #3b82f6;">
-                        <h3 id="stat-clients">0</h3>
-                        <p>Clientes en Seguimiento</p>
+                        <h3 id="stat-rentals">0</h3>
+                        <p>En Alquiler</p>
+                    </div>
+                    <div class="stat-card" style="border-color: #ef4444;">
+                        <h3 id="stat-sales">0</h3>
+                        <p>En Venta</p>
+                    </div>
+                </div>
+                
+                <div class="admin-form">
+                    <h3><i class="fas fa-bolt"></i> Accesos Rápidos</h3>
+                    <div style="margin-top:15px; display:flex; gap:10px;">
+                        <button class="btn btn-primary" onclick="adminApp.resetForm(); adminApp.openPropertyModal()">Añadir Inmueble</button>
+                        <button class="btn btn-outline" onclick="adminApp.switchView('messages')">Ver Bandeja de Entrada</button>
                     </div>
                 </div>
             </section>

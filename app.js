@@ -168,6 +168,56 @@ if (document.getElementById('properties')) {
             dots[state.currentSlide].classList.add('active');
         },
 
+        // --- LOGIN ---
+        openLoginModal: () => {
+            document.getElementById('login-modal').classList.add('open');
+            document.body.style.overflow = 'hidden';
+        },
+
+        closeLoginModal: () => {
+            document.getElementById('login-modal').classList.remove('open');
+            document.body.style.overflow = '';
+        },
+
+        loginAdmin: async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const pass = document.getElementById('login-pass').value;
+            const btn = e.target.querySelector('button');
+            
+            btn.disabled = true;
+            btn.innerText = 'Verificando...';
+
+            try {
+                // Buscar admin en la colección 'admins'
+                const q = query(collection(db, "admins"), where("email", "==", email));
+                const querySnapshot = await getDocs(q);
+
+                if (querySnapshot.empty) {
+                    showToast('Credenciales incorrectas', 'error');
+                } else {
+                    const adminDoc = querySnapshot.docs[0];
+                    const adminData = adminDoc.data();
+
+                    // COMPROBAR CONTRASEÑA (En producción, usa Firebase Auth)
+                    if (adminData.password === pass) {
+                        showToast('Acceso concedido', 'success');
+                        setTimeout(() => {
+                            window.location.href = 'admin.html';
+                        }, 1000);
+                    } else {
+                        showToast('Contraseña incorrecta', 'error');
+                    }
+                }
+            } catch (error) {
+                console.error(error);
+                showToast('Error de conexión', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Entrar';
+            }
+        },
+
         goToSlide: (index) => {
             const slides = document.querySelectorAll('.modal-slide');
             const dots = document.querySelectorAll('.dot');
@@ -285,12 +335,21 @@ if (document.getElementById('admin-panel')) {
                     getDocs(query(collection(db, "clients")))
                 ]);
                 
+                const props = pSnap.docs.map(d => d.data());
                 const messages = mSnap.docs.map(d => d.data());
                 const unreadCount = messages.filter(m => m.read === false).length;
 
-                document.getElementById('stat-props').innerText = pSnap.size;
+                // Contar Inmuebles por Tipo
+                const rentalsCount = props.filter(p => p.type === 'rent').length;
+                const salesCount = props.filter(p => p.type === 'sale').length;
+
+                document.getElementById('stat-props').innerText = props.length; // Inmuebles Totales
                 document.getElementById('stat-msgs').innerText = unreadCount; 
                 document.getElementById('stat-clients').innerText = cSnap.size;
+                
+                // Actualizar nuevos contadores
+                document.getElementById('stat-rentals').innerText = rentalsCount;
+                document.getElementById('stat-sales').innerText = salesCount;
                 
                 const badge = document.getElementById('msg-badge');
                 if (unreadCount > 0) {
