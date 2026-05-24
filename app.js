@@ -85,20 +85,60 @@ if (document.getElementById('properties')) {
         let counter = 0;
         
         state.properties.forEach((data) => {
-            // 1. Filtro Principal (Rent/Sale/All)
+            // 1. Filtro Principal
             if (state.filter === 'all' || data.type === state.filter) {
                 
-                // 2. Filtros Secundarios (Provincia / Ciudad)
+                // 2. Filtros Secundarios
                 let matchSecondary = true;
-                const locLower = (data.location || '').toLowerCase();
-                const provLower = app.secondaryFilters.province.toLowerCase();
-                const cityLower = app.secondaryFilters.city.toLowerCase();
+                const prov = (data.province || '').toLowerCase();
+                const city = (data.city || '').toLowerCase();
+                const oldLoc = (data.location || '').toLowerCase();
+                const filterProv = app.secondaryFilters.province.toLowerCase();
+                const filterCity = app.secondaryFilters.city.toLowerCase();
 
-                if (provLower && !locLower.includes(provLower)) matchSecondary = false;
-                if (cityLower && !locLower.includes(cityLower)) matchSecondary = false;
+                // Buscar en campos nuevos o en el antiguo location por compatibilidad
+                if (filterProv && !prov.includes(filterProv) && !oldLoc.includes(filterProv)) matchSecondary = false;
+                if (filterCity && !city.includes(filterCity) && !oldLoc.includes(filterCity)) matchSecondary = false;
 
                 if (matchSecondary) {
-                    html += createCard(data, counter);
+                    // ACTUALIZAR VISUALIZACIÓN EN TARJETA
+                    const displayLoc = data.city ? `${data.city}, ${data.province}` : (data.province || data.location);
+                    
+                    // Copiamos la lógica de createCard aquí para inyectar la ubicación correcta
+                    const delay = counter * 100; 
+                    const badgeClass = data.type === 'rent' ? 'badge-rent' : 'badge-sale';
+                    const badgeText = data.type === 'rent' ? 'Alquiler' : 'Venta';
+                    const mainImg = Array.isArray(data.img) && data.img.length > 0 ? data.img[0] : (data.img || 'https://picsum.photos/400/300');
+                    const price = data.period ? `${formatPrice(data.price)} /${data.period}` : formatPrice(data.price);
+                    const refDisplay = data.ref ? `<span class="ref-badge">${data.ref}</span>` : '';
+
+                    let statusOverlay = '';
+                    let imgClass = 'card-img';
+                    if (data.status === 'reserved' || data.status === 'sold') {
+                        imgClass += ' img-grayscale'; 
+                        const statusText = data.status === 'reserved' ? 'RESERVADO' : 'VENDIDO';
+                        const colorClass = data.status === 'reserved' ? 'bg-reserved' : 'bg-sold';
+                        statusOverlay = `<div class="status-overlay ${colorClass}">${statusText}</div>`;
+                    }
+
+                    html += `
+                        <div class="card" style="animation-delay: ${delay}ms" onclick="app.showDetail('${data.id}')">
+                            <div style="overflow: hidden; position: relative;">
+                                <img src="${mainImg}" class="${imgClass}" alt="${data.title}" loading="lazy">
+                                ${statusOverlay}
+                                ${Array.isArray(data.img) && data.img.length > 1 ? `<span style="position:absolute; bottom:10px; right:10px; background:rgba(0,0,0,0.6); color:white; padding:2px 6px; border-radius:10px; font-size:0.7rem;"><i class="fas fa-images"></i> +${data.img.length-1}</span>` : ''}
+                                <span class="badge ${badgeClass}" style="position: absolute; top: 15px; left: 15px; z-index: 10;">${badgeText}</span>
+                            </div>
+                            <div class="card-body">
+                                ${refDisplay}
+                                <div class="card-price">${price}</div>
+                                <h3 class="card-title">${data.title}</h3>
+                                <div class="card-meta">
+                                    <span><i class="fas fa-map-marker-alt"></i> ${displayLoc}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
                     counter++;
                 }
             }
@@ -131,14 +171,12 @@ if (document.getElementById('properties')) {
     };
 
     window.app = {
-        // Estado de los filtros secundarios
         secondaryFilters: {
             province: '',
             city: ''
         },
 
         init: () => {
-            // Iniciar escuchando cambios en tiempo real
             startRealtimeListener();
         },
 
@@ -147,23 +185,19 @@ if (document.getElementById('properties')) {
             document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
             if(event && event.target) event.target.classList.add('active');
             
-            // Reiniciar filtros secundarios al cambiar el filtro principal
+            // Resetear filtros secundarios
             app.secondaryFilters.province = '';
             app.secondaryFilters.city = '';
             
-            // 1. Generar los filtros dinámicos basados en los resultados
             app.generateDynamicFilters();
-            
-            // 2. Renderizar el grid
             renderGrid();
         },
         
-        // NUEVA FUNCIÓN: Generar Selects de Provincia y Población
         generateDynamicFilters: () => {
             const container = document.getElementById('dynamic-filters');
-            container.innerHTML = ''; // Limpiar anteriores
+            container.innerHTML = ''; 
 
-            // Filtrar propiedades actuales según el filtro principal (Rent/Sale)
+            // 1. Filtrar propiedades actuales para saber qué opciones mostrar
             const currentProps = state.properties.filter(p => 
                 state.filter === 'all' || p.type === state.filter
             );
@@ -173,28 +207,31 @@ if (document.getElementById('properties')) {
                 return;
             }
 
-            // Extraer Provincias y Poblaciones únicas
+            // 2. Extraer Provincias y Ciudades
             const provincesSet = new Set();
-            const citiesSet = new Set(); // Nota: Aquí guardaremos todas las ciudades para filtrar globalmente o podríamos anidarlo
+            const citiesSet = new Set();
 
-            // Lógica simple: Separar por coma si existe
             currentProps.forEach(p => {
-                if(!p.location) return;
-                const parts = p.location.split(',');
+                // Buscar en los campos nuevos o en el antiguo 'location'
+                const prov = p.province || '';
+                const city = p.city || '';
+                const loc = p.location || '';
+
+                if (prov) provincesSet.add(prov);
+                if (city) citiesSet.add(city);
                 
-                // Si hay coma (ej: "Marbella, Málaga")
-                if (parts.length > 1) {
-                    const city = parts[0].trim();
-                    const province = parts[1].trim();
-                    provincesSet.add(province);
-                    citiesSet.add(city);
-                } else {
-                    // Si solo hay una parte (ej: "Madrid"), asumimos que es la provincia para el filtro
-                    provincesSet.add(parts[0].trim());
+                // Si solo existe el antiguo campo location (migración)
+                if (!prov && !city && loc) {
+                    const parts = loc.split(',');
+                    if (parts.length > 1) {
+                        citiesSet.add(parts[0].trim());
+                        provincesSet.add(parts[1].trim());
+                    } else {
+                        provincesSet.add(parts[0].trim());
+                    }
                 }
             });
 
-            // Ordenar alfabéticamente
             const provinces = Array.from(provincesSet).sort();
             const cities = Array.from(citiesSet).sort();
 
@@ -204,57 +241,85 @@ if (document.getElementById('properties')) {
             }
 
             container.style.display = 'flex';
+            container.className = 'filter-bar'; // APLICAR CLASE DE ADMIN
 
-            // --- CONSTRUIR HTML ---
-
-            // 1. Select Provincia
+            // --- GENERAR SELECTS CON ESTILO DE ADMIN ---
+            
+            // Wrapper para Provincia
             if (provinces.length > 0) {
+                const groupProv = document.createElement('div');
+                groupProv.className = 'filter-group';
+                
+                const labelProv = document.createElement('label');
+                labelProv.innerText = 'Provincia';
+                
                 const provSelect = document.createElement('select');
-                provSelect.className = 'form-input';
-                provSelect.style.width = 'auto';
-                provSelect.style.minWidth = '150px';
-                provSelect.innerHTML = `<option value="">Provincia</option>` + 
+                provSelect.className = 'filter-input';
+                provSelect.id = 'index-filter-prov'; // ID único para referenciar
+                provSelect.innerHTML = `<option value="">Todas</option>` + 
                     provinces.map(p => `<option value="${p}">${p}</option>`).join('');
                 
                 provSelect.addEventListener('change', (e) => {
                     app.secondaryFilters.province = e.target.value;
-                    app.secondaryFilters.city = ''; // Resetear ciudad al cambiar provincia
                     renderGrid();
                 });
-                container.appendChild(provSelect);
+
+                groupProv.appendChild(labelProv);
+                groupProv.appendChild(provSelect);
+                container.appendChild(groupProv);
             }
 
-            // 2. Select Población (Ciudad)
-            // Nota: Para hacerlo perfecto, al elegir provincia solo deberían salir las ciudades de esa provincia.
-            // Para mantenerlo simple en este ejemplo, mostramos todas las ciudades encontradas en los resultados.
+            // Wrapper para Población
             if (cities.length > 0) {
+                const groupCity = document.createElement('div');
+                groupCity.className = 'filter-group';
+
+                const labelCity = document.createElement('label');
+                labelCity.innerText = 'Población';
+
                 const citySelect = document.createElement('select');
-                citySelect.className = 'form-input';
-                citySelect.style.width = 'auto';
-                citySelect.style.minWidth = '150px';
-                citySelect.innerHTML = `<option value="">Población</option>` + 
+                citySelect.className = 'filter-input';
+                citySelect.id = 'index-filter-city';
+                citySelect.innerHTML = `<option value="">Todas</option>` + 
                     cities.map(c => `<option value="${c}">${c}</option>`).join('');
 
                 citySelect.addEventListener('change', (e) => {
                     app.secondaryFilters.city = e.target.value;
                     renderGrid();
                 });
-                container.appendChild(citySelect);
+
+                groupCity.appendChild(labelCity);
+                groupCity.appendChild(citySelect);
+                container.appendChild(groupCity);
             }
 
-            // 3. Botón Limpiar
+            // Botón Limpiar
+            const clearGroup = document.createElement('div');
+            clearGroup.className = 'filter-group';
+            // Alinear el botón al final
+            clearGroup.style.display = 'flex';
+            clearGroup.style.alignItems = 'flex-end';
+
             const clearBtn = document.createElement('button');
-            clearBtn.className = 'btn btn-outline';
-            clearBtn.innerText = 'Limpiar Filtros';
+            clearBtn.className = 'btn-clear';
+            clearBtn.innerText = 'Limpiar';
+            
+            // SOLUCIÓN AL ERROR: En lugar de intentar modificar el DOM directo,
+            // simplemente volvemos a ejecutar el filtro con valores vacíos.
             clearBtn.onclick = () => {
                 app.secondaryFilters.province = '';
                 app.secondaryFilters.city = '';
-                // Resetear selects visuales
-                provSelect.value = "";
-                citySelect.value = "";
+                // Actualizar los selects visuales (si existen)
+                const pSelect = document.getElementById('index-filter-prov');
+                const cSelect = document.getElementById('index-filter-city');
+                if(pSelect) pSelect.value = "";
+                if(cSelect) cSelect.value = "";
+                
                 renderGrid();
             };
-            container.appendChild(clearBtn);
+
+            clearGroup.appendChild(clearBtn);
+            container.appendChild(clearGroup);
         },
 
         showDetail: (id) => {
@@ -268,7 +333,15 @@ if (document.getElementById('properties')) {
             const priceText = property.period ? `${formatPrice(property.price)} /${property.period}` : formatPrice(property.price);
             document.getElementById('modal-title').innerText = property.title;
             document.getElementById('modal-price').innerText = priceText;
-            document.getElementById('modal-location').querySelector('span').innerText = property.location;
+            
+            // ACTUALIZAR UBICACIÓN EN EL MODAL
+            let fullLocation = '';
+            if (property.city) fullLocation = `${property.city}, ${property.province}`;
+            else if (property.province) fullLocation = property.province;
+            else if (property.location) fullLocation = property.location;
+
+            document.getElementById('modal-location').querySelector('span').innerText = fullLocation;
+            
             document.getElementById('modal-beds').innerText = property.beds;
             document.getElementById('modal-baths').innerText = property.baths;
             document.getElementById('modal-desc').innerText = property.desc || "Sin descripción.";
@@ -367,6 +440,7 @@ if (document.getElementById('properties')) {
             finally { btn.disabled = false; btn.innerText = 'Enviar Solicitud'; }
         }
     };
+
     document.getElementById('property-modal').addEventListener('click', (e) => { if (e.target.id === 'property-modal') app.closeModal(); });
     document.getElementById('contact-modal').addEventListener('click', (e) => { if (e.target.id === 'contact-modal') app.closeContactModal(); });
     document.addEventListener('DOMContentLoaded', app.init);
@@ -552,7 +626,23 @@ if (document.getElementById('admin-panel')) {
                         document.getElementById('type').value = prop.type;
                         document.getElementById('status').value = prop.status || 'available';
                         document.getElementById('category').value = prop.category;
-                        document.getElementById('location').value = prop.location;
+                        
+                        // LÓGICA DE MIGRACIÓN Y CARGA DE DATOS
+                        if (prop.province && prop.city) {
+                            // Datos nuevos (separados)
+                            document.getElementById('province').value = prop.province;
+                            document.getElementById('city').value = prop.city;
+                        } else if (prop.location) {
+                            // Datos antiguos (campo único "Ubicación")
+                            const parts = prop.location.split(',');
+                            if (parts.length > 1) {
+                                document.getElementById('city').value = parts[0].trim();
+                                document.getElementById('province').value = parts[1].trim();
+                            } else {
+                                document.getElementById('province').value = parts[0].trim();
+                            }
+                        }
+
                         document.getElementById('beds').value = prop.beds;
                         document.getElementById('baths').value = prop.baths;
                         
@@ -642,6 +732,13 @@ if (document.getElementById('admin-panel')) {
                                 <div>
                                     <h4 style="margin-bottom:5px;">${p.title}</h4>
                                     <div style="margin-bottom:8px;"><span class="status-badge ${statusClass}">${statusLabel}</span></div>
+                                    <div style="margin-bottom:8px;">
+                                        <!-- Mostrar Ciudad, Provincia -->
+                                        <small style="color:#666;">
+                                            <i class="fas fa-map-marker-alt"></i> 
+                                            ${p.city ? p.city + ', ' : ''} ${p.province || (p.location || 'Sin ubicación')}
+                                        </small>
+                                    </div>
                                     <small style="color:var(--primary); font-weight:bold;">${formatPrice(p.price)}</small>
                                     <div style="margin-top:10px; display:flex; gap:10px;">
                                         <button class="btn btn-primary" style="flex:1; padding:5px; font-size:0.8rem;" onclick="adminApp.openPropertyModal('${docSnap.id}')"><i class="fas fa-edit"></i> Editar</button>
@@ -677,7 +774,8 @@ if (document.getElementById('admin-panel')) {
                 type: document.getElementById('type').value,
                 status: document.getElementById('status').value,
                 category: document.getElementById('category').value,
-                location: document.getElementById('location').value,
+                province: document.getElementById('province').value,
+                city: document.getElementById('city').value,
                 beds: Number(document.getElementById('beds').value),
                 baths: Number(document.getElementById('baths').value),
                 img: imagesArray,
