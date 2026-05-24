@@ -378,12 +378,42 @@ if (document.getElementById('properties')) {
                 document.getElementById('btn-cancel').style.display = 'none';
             },
 
+            // Función auxiliar para formatear fechas de forma segura
+            formatSafeDate: (dateInput) => {
+                if (!dateInput) return 'Sin fecha';
+
+                let dateObj;
+
+                // 1. Si es un Timestamp de Firebase (tiene método toDate)
+                if (dateInput && typeof dateInput.toDate === 'function') {
+                    dateObj = dateInput.toDate();
+                } else {
+                    // 2. Si es un string o número, intentar crear fecha
+                    dateObj = new Date(dateInput);
+                }
+
+                // 3. Verificar si la fecha es válida
+                if (isNaN(dateObj.getTime())) {
+                    // Si es inválida (ej: texto en español manual), devolver el texto original
+                    return typeof dateInput === 'string' ? dateInput : 'Formato desconocido';
+                }
+
+                // 4. Devolver fecha formateada bonita
+                return dateObj.toLocaleDateString('es-ES', { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            },
+
             // --- MENSAJES ---
             renderMessages: async () => {
                 const container = document.getElementById('messages-container');
                 container.innerHTML = '<p>Cargando...</p>';
                 try {
-                    const q = query(collection(db, "messages"), orderBy("date", "desc"));
+                    const q = query(collection(db, "messages"), orderBy("date", "desc")); // Nota: Si 'date' es texto, el orden puede fallar, pero la visualización funcionará
                     const snap = await getDocs(q);
                     
                     const cSnap = await getDocs(collection(db, "clients"));
@@ -400,7 +430,9 @@ if (document.getElementById('properties')) {
                     snap.forEach(d => {
                         const m = d.data();
                         const isRead = m.read === true;
-                        const date = m.date ? new Date(m.date).toLocaleDateString() : '';
+                        
+                        // USAR LA FUNCIÓN SEGURA AQUÍ
+                        const date = adminApp.formatSafeDate(m.date);
                         
                         const isTracked = clientMap.has(m.clientEmail) || clientMap.has(m.clientPhone);
                         const addBtnState = isTracked ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : `onclick="adminApp.addToTracking('${d.id}')"`;
@@ -503,11 +535,15 @@ if (document.getElementById('properties')) {
                     let html = '';
                     snap.forEach(d => {
                         const c = d.data();
+                        
+                        // USAR LA FUNCIÓN SEGURA AQUÍ
+                        const createdDate = adminApp.formatSafeDate(c.createdAt);
+
                         html += `
                             <div class="client-card">
                                 <div class="client-header">
                                     <h4 style="margin:0;">${c.name}</h4>
-                                    <small>${c.createdAt ? new Date(c.createdAt).toLocaleDateString() : ''}</small>
+                                    <small>${createdDate}</small>
                                 </div>
                                 <p style="font-size:0.9rem; color:#666; margin-bottom:5px;"><i class="fas fa-envelope"></i> ${c.email}</p>
                                 <p style="font-size:0.9rem; color:#666;"><i class="fas fa-phone"></i> ${c.phone || 'N/A'}</p>
