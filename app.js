@@ -191,384 +191,383 @@ if (document.getElementById('properties')) {
 // ==========================================
 // LÓGICA ADMIN
 // ==========================================
-if (document.getElementById('admin-panel')) {
-    const adminApp = {
-        data: { properties: [], messages: [], clients: [] },
+    if (document.getElementById('admin-panel')) {
+        const adminApp = {
+            data: { properties: [], messages: [], clients: [] },
 
-        init: async () => {
-            adminApp.loadDashboard();
-            document.getElementById('property-form').addEventListener('submit', adminApp.saveProperty);
-            
-            // Listener para cerrar menú al cambiar de tamaño de ventana si estaba abierto
-            window.addEventListener('resize', () => {
-                if(window.innerWidth > 992) {
-                    document.querySelector('.admin-sidebar').classList.remove('open');
-                    document.querySelector('.sidebar-overlay').classList.remove('active');
-                }
-            });
-        },
-
-        switchView: (viewName, btnElement) => {
-            // ... código existente para ocultar/mostrar secciones ...
-            
-            document.querySelectorAll('.admin-view').forEach(el => el.style.display = 'none');
-            document.getElementById(`view-${viewName}`).style.display = 'block';
-            
-            if(btnElement) {
-                document.querySelectorAll('.admin-sidebar .nav-link').forEach(l => l.classList.remove('active'));
-                btnElement.classList.add('active');
-            }
-
-            // CERRAR MENÚ MÓVIL AUTOMÁTICAMENTE AL SELECCIONAR OPCIÓN
-            if(window.innerWidth <= 992) {
-                adminApp.toggleMenu();
-            }
-
-            if (viewName === 'dashboard') adminApp.loadDashboard();
-            if (viewName === 'properties') adminApp.renderProperties();
-            if (viewName === 'messages') adminApp.renderMessages();
-            if (viewName === 'clients') adminApp.renderClients();
-        },
-
-        // --- FUNCIONES DE UI ---
-        toggleMenu: () => {
-            const sidebar = document.querySelector('.admin-sidebar');
-            const overlay = document.querySelector('.sidebar-overlay');
-            sidebar.classList.toggle('open');
-            overlay.classList.toggle('active');
-        },
-
-        // --- DASHBOARD ---
-        loadDashboard: async () => {
-            try {
-                const [pSnap, mSnap, cSnap] = await Promise.all([
-                    getDocs(query(collection(db, "properties"))),
-                    getDocs(query(collection(db, "messages"))),
-                    getDocs(query(collection(db, "clients")))
-                ]);
+            init: async () => {
+                adminApp.loadDashboard();
+                document.getElementById('property-form').addEventListener('submit', adminApp.saveProperty);
                 
-                // Calcular mensajes NO LEÍDOS
-                const messages = mSnap.docs.map(d => d.data());
-                const unreadCount = messages.filter(m => m.read === false).length;
+                // Listener para cerrar menú al cambiar de tamaño de ventana si estaba abierto
+                window.addEventListener('resize', () => {
+                    if(window.innerWidth > 992) {
+                        const sidebar = document.querySelector('.admin-sidebar');
+                        const overlay = document.querySelector('.sidebar-overlay');
+                        if(sidebar) sidebar.classList.remove('open');
+                        if(overlay) overlay.classList.remove('active');
+                    }
+                });
+            },
 
-                document.getElementById('stat-props').innerText = pSnap.size;
-                document.getElementById('stat-msgs').innerText = unreadCount; // Ahora solo muestra no leídos
-                document.getElementById('stat-clients').innerText = cSnap.size;
+            // --- NAVEGACIÓN Y UI ---
+            switchView: (viewName, btnElement) => {
+                // Ocultar todas las vistas
+                document.querySelectorAll('.admin-view').forEach(el => el.style.display = 'none');
+                // Mostrar la seleccionada
+                document.getElementById(`view-${viewName}`).style.display = 'block';
                 
-                // Actualizar badge del sidebar también
-                const badge = document.getElementById('msg-badge');
-                if (unreadCount > 0) {
-                    badge.style.display = 'inline-block';
-                    badge.innerText = unreadCount;
-                } else {
-                    badge.style.display = 'none';
+                // Actualizar Sidebar
+                if(btnElement) {
+                    document.querySelectorAll('.admin-sidebar .nav-link').forEach(l => l.classList.remove('active'));
+                    btnElement.classList.add('active');
                 }
-            } catch (e) { console.error(e); }
-        },
 
-        // --- PROPIEDADES ---
-        renderProperties: async () => {
-            const listContainer = document.getElementById('admin-list');
-            listContainer.innerHTML = '<div style="text-align:center; grid-column:1/-1;"><i class="fas fa-spinner fa-spin"></i></div>';
-            try {
-                const q = query(collection(db, "properties"), orderBy("createdAt", "desc"));
-                const snapshot = await getDocs(q);
-                let html = '';
-                snapshot.forEach(docSnap => {
-                    const p = docSnap.data();
-                    const imgDisplay = Array.isArray(p.img) ? p.img[0] : p.img;
-                    html += `
-                        <div class="card" style="padding:15px; display:flex; flex-direction:column; justify-content:space-between;">
-                            <img src="${imgDisplay}" style="height:150px; width:100%; object-fit:cover; border-radius:8px; margin-bottom:10px;">
-                            <div>
-                                <h4 style="margin-bottom:5px;">${p.title}</h4>
-                                <small style="color:var(--primary); font-weight:bold;">${formatPrice(p.price)}</small>
-                                <div style="margin-top:10px; display:flex; gap:10px;">
-                                    <button class="btn btn-primary" style="flex:1; padding:5px; font-size:0.8rem;" onclick="adminApp.editProperty('${docSnap.id}')"><i class="fas fa-edit"></i> Editar</button>
-                                    <button class="btn btn-danger" style="padding: 5px 10px; font-size:0.8rem;" onclick="adminApp.deleteProperty('${docSnap.id}')"><i class="fas fa-trash"></i></button>
+                // CERRAR MENÚ MÓVIL AUTOMÁTICAMENTE AL SELECCIONAR OPCIÓN
+                if(window.innerWidth <= 992) {
+                    adminApp.toggleMenu(); // Esto lo cerrará
+                }
+
+                if (viewName === 'dashboard') adminApp.loadDashboard();
+                if (viewName === 'properties') adminApp.renderProperties();
+                if (viewName === 'messages') adminApp.renderMessages();
+                if (viewName === 'clients') adminApp.renderClients();
+            },
+
+            toggleMenu: () => {
+                const sidebar = document.querySelector('.admin-sidebar');
+                const overlay = document.querySelector('.sidebar-overlay');
+                
+                // Alternar clases para abrir/cerrar
+                if (sidebar && overlay) {
+                    sidebar.classList.toggle('open');
+                    overlay.classList.toggle('active');
+                }
+            },
+
+            // --- DASHBOARD ---
+            loadDashboard: async () => {
+                try {
+                    const [pSnap, mSnap, cSnap] = await Promise.all([
+                        getDocs(query(collection(db, "properties"))),
+                        getDocs(query(collection(db, "messages"))),
+                        getDocs(query(collection(db, "clients")))
+                    ]);
+                    
+                    // Calcular mensajes NO LEÍDOS
+                    const messages = mSnap.docs.map(d => d.data());
+                    const unreadCount = messages.filter(m => m.read === false).length;
+
+                    document.getElementById('stat-props').innerText = pSnap.size;
+                    document.getElementById('stat-msgs').innerText = unreadCount; 
+                    document.getElementById('stat-clients').innerText = cSnap.size;
+                    
+                    // Actualizar badge del sidebar también
+                    const badge = document.getElementById('msg-badge');
+                    if (unreadCount > 0) {
+                        badge.style.display = 'inline-block';
+                        badge.innerText = unreadCount;
+                    } else {
+                        badge.style.display = 'none';
+                    }
+                } catch (e) { console.error(e); }
+            },
+
+            // --- PROPIEDADES ---
+            renderProperties: async () => {
+                const listContainer = document.getElementById('admin-list');
+                listContainer.innerHTML = '<div style="text-align:center; grid-column:1/-1;"><i class="fas fa-spinner fa-spin"></i></div>';
+                try {
+                    const q = query(collection(db, "properties"), orderBy("createdAt", "desc"));
+                    const snapshot = await getDocs(q);
+                    let html = '';
+                    snapshot.forEach(docSnap => {
+                        const p = docSnap.data();
+                        const imgDisplay = Array.isArray(p.img) ? p.img[0] : p.img;
+                        html += `
+                            <div class="card" style="padding:15px; display:flex; flex-direction:column; justify-content:space-between;">
+                                <img src="${imgDisplay}" style="height:150px; width:100%; object-fit:cover; border-radius:8px; margin-bottom:10px;">
+                                <div>
+                                    <h4 style="margin-bottom:5px;">${p.title}</h4>
+                                    <small style="color:var(--primary); font-weight:bold;">${formatPrice(p.price)}</small>
+                                    <div style="margin-top:10px; display:flex; gap:10px;">
+                                        <button class="btn btn-primary" style="flex:1; padding:5px; font-size:0.8rem;" onclick="adminApp.editProperty('${docSnap.id}')"><i class="fas fa-edit"></i> Editar</button>
+                                        <button class="btn btn-danger" style="padding: 5px 10px; font-size:0.8rem;" onclick="adminApp.deleteProperty('${docSnap.id}')"><i class="fas fa-trash"></i></button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    `;
-                });
-                listContainer.innerHTML = html;
-            } catch (error) { console.error(error); }
-        },
+                        `;
+                    });
+                    listContainer.innerHTML = html;
+                } catch (error) { console.error(error); }
+            },
 
-        saveProperty: async (e) => {
-            e.preventDefault();
-            const editId = document.getElementById('edit-id').value;
-            const btn = document.getElementById('btn-save');
-            btn.disabled = true;
-            btn.innerText = editId ? 'Actualizando...' : 'Guardando...';
+            saveProperty: async (e) => {
+                e.preventDefault();
+                const editId = document.getElementById('edit-id').value;
+                const btn = document.getElementById('btn-save');
+                btn.disabled = true;
+                btn.innerText = editId ? 'Actualizando...' : 'Guardando...';
 
-            // Procesar imágenes: Convertir textarea en array
-            const rawImages = document.getElementById('img').value;
-            const imagesArray = rawImages.split('\n').map(url => url.trim()).filter(url => url !== '');
+                const rawImages = document.getElementById('img').value;
+                const imagesArray = rawImages.split('\n').map(url => url.trim()).filter(url => url !== '');
 
-            const formData = {
-                title: document.getElementById('title').value,
-                price: Number(document.getElementById('price').value),
-                period: document.getElementById('period').value,
-                type: document.getElementById('type').value,
-                category: document.getElementById('category').value,
-                location: document.getElementById('location').value,
-                beds: Number(document.getElementById('beds').value),
-                baths: Number(document.getElementById('baths').value),
-                img: imagesArray, // Guardar como Array
-                desc: document.getElementById('desc').value,
-            };
+                const formData = {
+                    title: document.getElementById('title').value,
+                    price: Number(document.getElementById('price').value),
+                    period: document.getElementById('period').value,
+                    type: document.getElementById('type').value,
+                    category: document.getElementById('category').value,
+                    location: document.getElementById('location').value,
+                    beds: Number(document.getElementById('beds').value),
+                    baths: Number(document.getElementById('baths').value),
+                    img: imagesArray,
+                    desc: document.getElementById('desc').value,
+                };
 
-            try {
-                if (editId) {
-                    await updateDoc(doc(db, "properties", editId), formData);
-                    showToast('Actualizado');
-                } else {
-                    await addDoc(collection(db, "properties"), { ...formData, createdAt: new Date() });
-                    showToast('Creado');
-                }
-                adminApp.resetForm();
-                adminApp.renderProperties();
-            } catch (error) { console.error(error); showToast('Error', 'error'); }
-            finally { btn.disabled = false; btn.innerText = editId ? 'Actualizar' : 'Publicar'; }
-        },
+                try {
+                    if (editId) {
+                        await updateDoc(doc(db, "properties", editId), formData);
+                        showToast('Actualizado');
+                    } else {
+                        await addDoc(collection(db, "properties"), { ...formData, createdAt: new Date() });
+                        showToast('Creado');
+                    }
+                    adminApp.resetForm();
+                    adminApp.renderProperties();
+                } catch (error) { console.error(error); showToast('Error', 'error'); }
+                finally { btn.disabled = false; btn.innerText = editId ? 'Actualizar' : 'Publicar'; }
+            },
 
-        editProperty: async (id) => {
-            try {
-                const docSnap = await getDocs(query(collection(db, "properties")));
-                let prop = null;
-                docSnap.forEach(d => { if(d.id === id) prop = {id: d.id, ...d.data()}; });
-                if(prop) {
-                    document.getElementById('edit-id').value = prop.id;
-                    document.getElementById('title').value = prop.title;
-                    document.getElementById('price').value = prop.price;
-                    document.getElementById('period').value = prop.period || "";
-                    document.getElementById('type').value = prop.type;
-                    document.getElementById('category').value = prop.category;
-                    document.getElementById('location').value = prop.location;
-                    document.getElementById('beds').value = prop.beds;
-                    document.getElementById('baths').value = prop.baths;
+            editProperty: async (id) => {
+                try {
+                    const docSnap = await getDocs(query(collection(db, "properties")));
+                    let prop = null;
+                    docSnap.forEach(d => { if(d.id === id) prop = {id: d.id, ...d.data()}; });
+                    if(prop) {
+                        document.getElementById('edit-id').value = prop.id;
+                        document.getElementById('title').value = prop.title;
+                        document.getElementById('price').value = prop.price;
+                        document.getElementById('period').value = prop.period || "";
+                        document.getElementById('type').value = prop.type;
+                        document.getElementById('category').value = prop.category;
+                        document.getElementById('location').value = prop.location;
+                        document.getElementById('beds').value = prop.beds;
+                        document.getElementById('baths').value = prop.baths;
+                        const imgText = Array.isArray(prop.img) ? prop.img.join('\n') : prop.img;
+                        document.getElementById('img').value = imgText;
+                        document.getElementById('desc').value = prop.desc || "";
+                        document.getElementById('form-title').innerHTML = '<i class="fas fa-edit"></i> Editar Propiedad';
+                        document.getElementById('btn-save').innerText = 'Actualizar Propiedad';
+                        document.getElementById('btn-cancel').style.display = 'inline-block';
+                        document.querySelector('.admin-main').scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                } catch(e) { console.error(e); }
+            },
+
+            deleteProperty: async (id) => {
+                if(!confirm('¿Eliminar propiedad?')) return;
+                try { await deleteDoc(doc(db, "properties", id)); showToast('Eliminado'); adminApp.renderProperties(); } catch(e) { showToast('Error', 'error'); }
+            },
+
+            resetForm: () => {
+                document.getElementById('property-form').reset();
+                document.getElementById('edit-id').value = "";
+                document.getElementById('form-title').innerHTML = '<i class="fas fa-plus-circle"></i> Nueva Propiedad';
+                document.getElementById('btn-save').innerText = 'Publicar';
+                document.getElementById('btn-cancel').style.display = 'none';
+            },
+
+            // --- MENSAJES ---
+            renderMessages: async () => {
+                const container = document.getElementById('messages-container');
+                container.innerHTML = '<p>Cargando...</p>';
+                try {
+                    const q = query(collection(db, "messages"), orderBy("date", "desc"));
+                    const snap = await getDocs(q);
                     
-                    // Convertir array a texto para el textarea
-                    const imgText = Array.isArray(prop.img) ? prop.img.join('\n') : prop.img;
-                    document.getElementById('img').value = imgText;
+                    const cSnap = await getDocs(collection(db, "clients"));
+                    const clientMap = new Map();
+                    cSnap.forEach(c => {
+                        const data = c.data();
+                        clientMap.set(data.email, true);
+                        if(data.phone) clientMap.set(data.phone, true);
+                    });
 
-                    document.getElementById('desc').value = prop.desc || "";
-                    document.getElementById('form-title').innerHTML = '<i class="fas fa-edit"></i> Editar Propiedad';
-                    document.getElementById('btn-save').innerText = 'Actualizar Propiedad';
-                    document.getElementById('btn-cancel').style.display = 'inline-block';
-                    document.querySelector('.admin-main').scrollTo({ top: 0, behavior: 'smooth' });
-                }
-            } catch(e) { console.error(e); }
-        },
+                    if(snap.empty) { container.innerHTML = '<p>No hay mensajes.</p>'; return; }
 
-        deleteProperty: async (id) => {
-            if(!confirm('¿Eliminar propiedad?')) return;
-            try { await deleteDoc(doc(db, "properties", id)); showToast('Eliminado'); adminApp.renderProperties(); } catch(e) { showToast('Error', 'error'); }
-        },
+                    let html = '';
+                    snap.forEach(d => {
+                        const m = d.data();
+                        const isRead = m.read === true;
+                        const date = m.date ? new Date(m.date).toLocaleDateString() : '';
+                        
+                        const isTracked = clientMap.has(m.clientEmail) || clientMap.has(m.clientPhone);
+                        const addBtnState = isTracked ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : `onclick="adminApp.addToTracking('${d.id}')"`;
+                        const addBtnText = isTracked ? 'En Seguimiento' : 'Añadir a Seguimiento';
 
-        resetForm: () => {
-            document.getElementById('property-form').reset();
-            document.getElementById('edit-id').value = "";
-            document.getElementById('form-title').innerHTML = '<i class="fas fa-plus-circle"></i> Nueva Propiedad';
-            document.getElementById('btn-save').innerText = 'Publicar';
-            document.getElementById('btn-cancel').style.display = 'none';
-        },
-
-        // --- MENSAJES (ACTUALIZADO) ---
-        renderMessages: async () => {
-            const container = document.getElementById('messages-container');
-            container.innerHTML = '<p>Cargando...</p>';
-            try {
-                const q = query(collection(db, "messages"), orderBy("date", "desc"));
-                const snap = await getDocs(q);
-                
-                // Cargar clientes para verificar duplicados
-                const cSnap = await getDocs(collection(db, "clients"));
-                const clientMap = new Map();
-                cSnap.forEach(c => {
-                    const data = c.data();
-                    clientMap.set(data.email, true);
-                    if(data.phone) clientMap.set(data.phone, true);
-                });
-
-                if(snap.empty) { container.innerHTML = '<p>No hay mensajes.</p>'; return; }
-
-                let html = '';
-                snap.forEach(d => {
-                    const m = d.data();
-                    const isRead = m.read === true;
-                    const date = m.date ? new Date(m.date).toLocaleDateString() : '';
-                    
-                    // Verificar si ya está en seguimiento
-                    const isTracked = clientMap.has(m.clientEmail) || clientMap.has(m.clientPhone);
-                    const addBtnState = isTracked ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : `onclick="adminApp.addToTracking('${d.id}')"`;
-                    const addBtnText = isTracked ? 'En Seguimiento' : 'Añadir a Seguimiento';
-
-                    html += `
-                        <div class="message-item ${isRead ? 'read' : 'unread'}">
-                            <div class="msg-info">
-                                <h4>${m.clientName} <small>(${m.clientEmail})</small> ${!isRead ? '<span style="color:var(--accent); font-size:0.7rem;">NUEVO</span>' : ''}</h4>
-                                <p style="margin:5px 0; color:#444;">${m.message}</p>
-                                <small><i class="fas fa-phone"></i> ${m.clientPhone} • ${date}</small>
-                                <div style="font-size:0.8rem; color:var(--primary); margin-top:2px;">Interés: ${m.propName}</div>
-                            </div>
-                            <div style="text-align:right;">
-                                <div class="msg-actions">
-                                    <button class="btn-xs btn-read" onclick="adminApp.toggleRead('${d.id}', ${!isRead})">
-                                        ${isRead ? 'Marcar No Leído' : 'Marcar Leído'}
+                        html += `
+                            <div class="message-item ${isRead ? 'read' : 'unread'}">
+                                <div class="msg-info">
+                                    <h4>${m.clientName} <small>(${m.clientEmail})</small> ${!isRead ? '<span style="color:var(--accent); font-size:0.7rem;">NUEVO</span>' : ''}</h4>
+                                    <p style="margin:5px 0; color:#444;">${m.message}</p>
+                                    <small><i class="fas fa-phone"></i> ${m.clientPhone} • ${date}</small>
+                                    <div style="font-size:0.8rem; color:var(--primary); margin-top:2px;">Interés: ${m.propName}</div>
+                                </div>
+                                <div style="text-align:right;">
+                                    <div class="msg-actions">
+                                        <button class="btn-xs btn-read" onclick="adminApp.toggleRead('${d.id}', ${!isRead})">
+                                            ${isRead ? 'Marcar No Leído' : 'Marcar Leído'}
+                                        </button>
+                                        <button class="btn-xs btn-delete" onclick="adminApp.deleteMessage('${d.id}')"><i class="fas fa-trash"></i></button>
+                                    </div>
+                                    <button class="btn-xs btn-add-client" style="margin-top:5px; width:100%;" ${addBtnState}>
+                                        ${addBtnText}
                                     </button>
-                                    <button class="btn-xs btn-delete" onclick="adminApp.deleteMessage('${d.id}')"><i class="fas fa-trash"></i></button>
                                 </div>
-                                <button class="btn-xs btn-add-client" style="margin-top:5px; width:100%;" ${addBtnState}>
-                                    ${addBtnText}
+                            </div>
+                        `;
+                    });
+                    container.innerHTML = html;
+                } catch(e) { console.error(e); }
+            },
+
+            toggleRead: async (id, status) => {
+                try { await updateDoc(doc(db, "messages", id), { read: status }); adminApp.renderMessages(); } catch(e) { console.error(e); }
+            },
+
+            deleteMessage: async (id) => {
+                if(!confirm('¿Eliminar mensaje?')) return;
+                try { await deleteDoc(doc(db, "messages", id)); adminApp.renderMessages(); showToast('Eliminado'); } catch(e) { console.error(e); }
+            },
+
+            deleteAllMessages: async () => {
+                if(!confirm('⚠️ ESTÁS A PUNTO DE BORRAR TODOS LOS MENSAJES. ¿Continuar?')) return;
+                try {
+                    const snap = await getDocs(collection(db, "messages"));
+                    const batch = snap.docs.map(d => deleteDoc(doc(db, "messages", d.id)));
+                    await Promise.all(batch);
+                    showToast('Todos los mensajes eliminados');
+                    adminApp.renderMessages();
+                } catch(e) { console.error(e); showToast('Error al borrar todo', 'error'); }
+            },
+
+            // --- CLIENTES / SEGUIMIENTO ---
+            addToTracking: async (msgId) => {
+                try {
+                    const mSnap = await getDocs(query(collection(db, "messages"), where("__name__", "==", msgId)));
+                    if(mSnap.empty) return;
+                    const msg = mSnap.docs[0].data();
+
+                    await addDoc(collection(db, "clients"), {
+                        name: msg.clientName,
+                        email: msg.clientEmail,
+                        phone: msg.clientPhone,
+                        notes: `Interés inicial en: ${msg.propName}. Mensaje: "${msg.message}"`,
+                        createdAt: new Date()
+                    });
+                    showToast('Cliente añadido a seguimiento');
+                    adminApp.renderMessages();
+                } catch(e) { console.error(e); showToast('Error', 'error'); }
+            },
+
+            addManualClient: async () => {
+                const name = document.getElementById('new-client-name').value;
+                const email = document.getElementById('new-client-email').value;
+                const phone = document.getElementById('new-client-phone').value;
+
+                if(!name || !email) return alert('Nombre y Email requeridos');
+
+                try {
+                    await addDoc(collection(db, "clients"), {
+                        name, email, phone, notes: 'Añadido manualmente', createdAt: new Date()
+                    });
+                    showToast('Cliente creado');
+                    document.getElementById('new-client-name').value = '';
+                    document.getElementById('new-client-email').value = '';
+                    document.getElementById('new-client-phone').value = '';
+                    document.getElementById('add-client-form').style.display = 'none';
+                    adminApp.renderClients();
+                } catch(e) { console.error(e); }
+            },
+
+            renderClients: async () => {
+                const container = document.getElementById('clients-container');
+                container.innerHTML = '<p>Cargando clientes...</p>';
+                try {
+                    const q = query(collection(db, "clients"), orderBy("createdAt", "desc"));
+                    const snap = await getDocs(q);
+                    
+                    if(snap.empty) { container.innerHTML = '<p>No hay clientes en seguimiento.</p>'; return; }
+
+                    let html = '';
+                    snap.forEach(d => {
+                        const c = d.data();
+                        html += `
+                            <div class="client-card">
+                                <div class="client-header">
+                                    <h4 style="margin:0;">${c.name}</h4>
+                                    <small>${c.createdAt ? new Date(c.createdAt).toLocaleDateString() : ''}</small>
+                                </div>
+                                <p style="font-size:0.9rem; color:#666; margin-bottom:5px;"><i class="fas fa-envelope"></i> ${c.email}</p>
+                                <p style="font-size:0.9rem; color:#666;"><i class="fas fa-phone"></i> ${c.phone || 'N/A'}</p>
+                                <div class="client-notes">
+                                    <strong>Notas:</strong><br>
+                                    ${c.notes || 'Sin notas.'}
+                                </div>
+                                <button class="btn btn-outline" style="width:100%; margin-top:10px; font-size:0.8rem; padding:5px;" onclick="adminApp.editClientNote('${d.id}')">
+                                    <i class="fas fa-edit"></i> Añadir Nota
+                                </button>
+                                <button class="btn btn-danger" style="width:100%; margin-top:5px; font-size:0.8rem; padding:5px;" onclick="adminApp.deleteClient('${d.id}')">
+                                    Eliminar
                                 </button>
                             </div>
-                        </div>
-                    `;
-                });
-                container.innerHTML = html;
-            } catch(e) { console.error(e); }
-        },
+                        `;
+                    });
+                    container.innerHTML = html;
+                } catch(e) { console.error(e); }
+            },
 
-        toggleRead: async (id, status) => {
-            try { await updateDoc(doc(db, "messages", id), { read: status }); adminApp.renderMessages(); } catch(e) { console.error(e); }
-        },
+            editClientNote: async (id) => {
+                try {
+                    // 1. Leer los datos actuales
+                    const docRef = doc(db, "clients", id);
+                    const docSnap = await getDoc(docRef);
 
-        deleteMessage: async (id) => {
-            if(!confirm('¿Eliminar mensaje?')) return;
-            try { await deleteDoc(doc(db, "messages", id)); adminApp.renderMessages(); showToast('Eliminado'); } catch(e) { console.error(e); }
-        },
+                    if (!docSnap.exists()) {
+                        showToast('Error: Cliente no encontrado', 'error');
+                        return;
+                    }
 
-        deleteAllMessages: async () => {
-            if(!confirm('⚠️ ESTÁS A PUNTO DE BORRAR TODOS LOS MENSAJES. ¿Continuar?')) return;
-            try {
-                const snap = await getDocs(collection(db, "messages"));
-                const batch = snap.docs.map(d => deleteDoc(doc(db, "messages", d.id)));
-                await Promise.all(batch);
-                showToast('Todos los mensajes eliminados');
-                adminApp.renderMessages();
-            } catch(e) { console.error(e); showToast('Error al borrar todo', 'error'); }
-        },
+                    const clientData = docSnap.data();
+                    const currentNotes = clientData.notes || "Sin notas previas.";
 
-        // --- CLIENTES / SEGUIMIENTO (NUEVO) ---
-        addToTracking: async (msgId) => {
-            try {
-                // Obtener datos del mensaje
-                const mSnap = await getDocs(query(collection(db, "messages"), where("__name__", "==", msgId)));
-                if(mSnap.empty) return;
-                const msg = mSnap.docs[0].data();
+                    // 2. Prompt con notas actuales
+                    const newNote = prompt(`Notas actuales:\n${currentNotes}\n\n--------------------------------\nEscribe la nueva nota a añadir abajo:`);
 
-                await addDoc(collection(db, "clients"), {
-                    name: msg.clientName,
-                    email: msg.clientEmail,
-                    phone: msg.clientPhone,
-                    notes: `Interés inicial en: ${msg.propName}. Mensaje: "${msg.message}"`,
-                    createdAt: new Date()
-                });
-                showToast('Cliente añadido a seguimiento');
-                adminApp.renderMessages(); // Actualizar botones
-            } catch(e) { console.error(e); showToast('Error', 'error'); }
-        },
+                    if (newNote && newNote.trim() !== "") {
+                        // 3. Guardar
+                        const timestamp = new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString();
+                        const updatedNotes = `${currentNotes}\n\n[${timestamp}]:\n${newNote}`;
 
-        addManualClient: async () => {
-            const name = document.getElementById('new-client-name').value;
-            const email = document.getElementById('new-client-email').value;
-            const phone = document.getElementById('new-client-phone').value;
-
-            if(!name || !email) return alert('Nombre y Email requeridos');
-
-            try {
-                await addDoc(collection(db, "clients"), {
-                    name, email, phone, notes: 'Añadido manualmente', createdAt: new Date()
-                });
-                showToast('Cliente creado');
-                document.getElementById('new-client-name').value = '';
-                document.getElementById('new-client-email').value = '';
-                document.getElementById('new-client-phone').value = '';
-                document.getElementById('add-client-form').style.display = 'none';
-                adminApp.renderClients();
-            } catch(e) { console.error(e); }
-        },
-
-        renderClients: async () => {
-            const container = document.getElementById('clients-container');
-            container.innerHTML = '<p>Cargando clientes...</p>';
-            try {
-                const q = query(collection(db, "clients"), orderBy("createdAt", "desc"));
-                const snap = await getDocs(q);
-                
-                if(snap.empty) { container.innerHTML = '<p>No hay clientes en seguimiento.</p>'; return; }
-
-                let html = '';
-                snap.forEach(d => {
-                    const c = d.data();
-                    html += `
-                        <div class="client-card">
-                            <div class="client-header">
-                                <h4 style="margin:0;">${c.name}</h4>
-                                <small>${c.createdAt ? new Date(c.createdAt).toLocaleDateString() : ''}</small>
-                            </div>
-                            <p style="font-size:0.9rem; color:#666; margin-bottom:5px;"><i class="fas fa-envelope"></i> ${c.email}</p>
-                            <p style="font-size:0.9rem; color:#666;"><i class="fas fa-phone"></i> ${c.phone || 'N/A'}</p>
-                            <div class="client-notes">
-                                <strong>Notas:</strong><br>
-                                ${c.notes || 'Sin notas.'}
-                            </div>
-<button class="btn btn-outline" style="width:100%; margin-top:10px; font-size:0.8rem; padding:5px;" onclick="adminApp.editClientNote('${d.id}')">
-    <i class="fas fa-edit"></i> Añadir Nota
-</button>
-                            <button class="btn btn-danger" style="width:100%; margin-top:5px; font-size:0.8rem; padding:5px;" onclick="adminApp.deleteClient('${d.id}')">
-                                Eliminar
-                            </button>
-                        </div>
-                    `;
-                });
-                container.innerHTML = html;
-            } catch(e) { console.error(e); }
-        },
-
-        editClientNote: async (id) => {
-            try {
-                // 1. Primero leemos los datos actuales del cliente para tener la nota actualizada
-                const docRef = doc(db, "clients", id);
-                const docSnap = await getDoc(docRef);
-
-                if (!docSnap.exists()) {
-                    showToast('Error: Cliente no encontrado', 'error');
-                    return;
+                        await updateDoc(docRef, { notes: updatedNotes });
+                        
+                        showToast('Nota añadida correctamente');
+                        adminApp.renderClients();
+                    }
+                } catch (error) {
+                    console.error("Error añadiendo nota:", error);
+                    showToast('Error al guardar la nota', 'error');
                 }
+            },
 
-                const clientData = docSnap.data();
-                const currentNotes = clientData.notes || "Sin notas previas.";
-
-                // 2. Mostramos el prompt con la nota actual como referencia
-                const newNote = prompt(`Notas actuales:\n${currentNotes}\n\n--------------------------------\nEscribe la nueva nota a añadir abajo:`);
-
-                if (newNote && newNote.trim() !== "") {
-                    // 3. Concatenamos la nueva nota con la fecha
-                    const timestamp = new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString();
-                    const updatedNotes = `${currentNotes}\n\n[${timestamp}]:\n${newNote}`;
-
-                    // 4. Guardamos en Firestore
-                    await updateDoc(docRef, { notes: updatedNotes });
-                    
-                    showToast('Nota añadida correctamente');
-                    adminApp.renderClients(); // Recargamos la lista para ver el cambio
-                }
-            } catch (error) {
-                console.error("Error añadiendo nota:", error);
-                showToast('Error al guardar la nota', 'error');
+            deleteClient: async (id) => {
+                if(!confirm('¿Eliminar cliente del seguimiento?')) return;
+                try { await deleteDoc(doc(db, "clients", id)); adminApp.renderClients(); } catch(e) { console.error(e); }
             }
-        },
+        };
 
-        deleteClient: async (id) => {
-            if(!confirm('¿Eliminar cliente del seguimiento?')) return;
-            try { await deleteDoc(doc(db, "clients", id)); adminApp.renderClients(); } catch(e) { console.error(e); }
-        }
-    };
-
-
-    window.adminApp = adminApp;
-    document.addEventListener('DOMContentLoaded', adminApp.init);
-}
+        // IMPORTANTE: Esta línea expone adminApp al HTML
+        window.adminApp = adminApp;
+        document.addEventListener('DOMContentLoaded', adminApp.init);
+    }
