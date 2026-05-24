@@ -24,23 +24,18 @@ const formatPrice = (price) => {
 
 
 // --- LÓGICA DE INDEX (PÚBLICO) ---
-// Detectamos si estamos en index.html buscando el ID 'properties'
 if (document.getElementById('properties')) {
     
     const state = {
-        properties: [],
+        properties: [], // Aquí guardaremos TODOS los datos
         filter: 'all'
     };
 
     // Función para crear el HTML de una tarjeta
     const createCard = (prop, index) => {
-        // Retraso para efecto cascada en animación
         const delay = index * 100; 
-        
         const badgeClass = prop.type === 'rent' ? 'badge-rent' : 'badge-sale';
         const badgeText = prop.type === 'rent' ? 'Alquiler' : 'Venta';
-        
-        // Formato de precio (ej: 150€ / noche o 200.000€)
         const price = prop.period ? `${formatPrice(prop.price)} /${prop.period}` : formatPrice(prop.price);
 
         return `
@@ -65,22 +60,23 @@ if (document.getElementById('properties')) {
     // Función para cargar propiedades desde Firestore
     const loadProperties = async (filterType = 'all') => {
         const grid = document.getElementById('properties-grid');
-        
-        // Mostrar spinner de carga
         grid.innerHTML = '<div style="text-align:center; grid-column:1/-1; padding:40px;"><i class="fas fa-circle-notch fa-spin fa-2x" style="color:var(--primary)"></i></div>';
 
         try {
-            // Consulta a Firestore ordenada por fecha de creación
             const q = query(collection(db, "properties"), orderBy("createdAt", "desc"));
             const querySnapshot = await getDocs(q);
             
+            // IMPORTANTE: Limpiamos y volvemos a llenar state.properties
+            state.properties = []; 
             let html = '';
             let counter = 0;
 
             querySnapshot.forEach((doc) => {
                 const data = { id: doc.id, ...doc.data() };
                 
-                // Filtrado: Si es 'all' muestra todo, si no, compara el tipo
+                // Guardamos en memoria para usar en el modal
+                state.properties.push(data);
+
                 if (filterType === 'all' || data.type === filterType) {
                     html += createCard(data, counter);
                     counter++;
@@ -88,39 +84,83 @@ if (document.getElementById('properties')) {
             });
 
             if (html === '') {
-                grid.innerHTML = '<p style="text-align:center; grid-column:1/-1; color:#888;">No se encontraron propiedades con este filtro.</p>';
+                grid.innerHTML = '<p style="text-align:center; grid-column:1/-1; color:#888;">No se encontraron propiedades.</p>';
             } else {
                 grid.innerHTML = html;
             }
 
         } catch (error) {
             console.error("Error cargando propiedades:", error);
-            grid.innerHTML = '<p style="text-align:center; color:red;">Error al cargar datos. Revisa la consola.</p>';
+            grid.innerHTML = '<p style="text-align:center; color:red;">Error al cargar datos.</p>';
             showToast('Error de conexión', 'error');
         }
     };
 
-    // Definición de la app pública (Window object) para que HTML pueda acceder
+    // Definición de la app pública
     window.app = {
         init: () => loadProperties('all'),
+        
         filter: (type) => {
-            // Actualizar clases visuales de botones
             document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            // 'event' es global en el contexto del onclick
             if(event && event.target) event.target.classList.add('active');
-            
             loadProperties(type);
         },
+        
+        // NUEVA FUNCIÓN: Abrir Modal
         showDetail: (id) => {
-            showToast(`Seleccionaste propiedad ID: ${id}`, 'success');
-            // Aquí podrías redirigir a una página de detalles: window.location.href = `details.html?id=${id}`;
+            // Buscar la propiedad en nuestro estado local
+            const property = state.properties.find(p => p.id === id);
+            
+            if (!property) {
+                showToast('Propiedad no encontrada', 'error');
+                return;
+            }
+
+            // Rellenar datos en el HTML del Modal
+            const priceText = property.period ? `${formatPrice(property.price)} /${property.period}` : formatPrice(property.price);
+            
+            document.getElementById('modal-img').src = property.img;
+            document.getElementById('modal-title').innerText = property.title;
+            document.getElementById('modal-price').innerText = priceText;
+            document.getElementById('modal-location').querySelector('span').innerText = property.location;
+            document.getElementById('modal-beds').innerText = property.beds;
+            document.getElementById('modal-baths').innerText = property.baths;
+            document.getElementById('modal-desc').innerText = property.desc || "Sin descripción detallada disponible.";
+            
+            // Configurar Badge
+            const badgeEl = document.getElementById('modal-badge');
+            if (property.type === 'rent') {
+                badgeEl.className = 'badge badge-rent';
+                badgeEl.innerText = 'Alquiler Vacacional';
+            } else {
+                badgeEl.className = 'badge badge-sale';
+                badgeEl.innerText = 'En Venta';
+            }
+
+            // Mostrar Modal
+            document.getElementById('property-modal').classList.add('open');
+            document.body.style.overflow = 'hidden'; // Evitar scroll de fondo
+        },
+
+        // Cerrar Modal
+        closeModal: () => {
+            document.getElementById('property-modal').classList.remove('open');
+            document.body.style.overflow = ''; // Restaurar scroll
+        },
+
+        contactAgent: () => {
+            showToast('Solicitud de contacto enviada al agente.', 'success');
+            setTimeout(() => app.closeModal(), 1500);
         }
     };
 
-    // Iniciar al cargar el DOM
+    // Cerrar modal si clic fuera del contenido
+    document.getElementById('property-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'property-modal') app.closeModal();
+    });
+
     document.addEventListener('DOMContentLoaded', app.init);
 }
-
 
 // --- LÓGICA DE ADMIN ---
 // Detectamos si estamos en admin.html

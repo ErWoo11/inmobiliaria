@@ -46,6 +46,48 @@
         <a href="#" class="nav-item"><i class="fas fa-user"></i> Perfil</a>
     </nav>
 
+    <!-- MODAL DE DETALLES -->
+    <div id="property-modal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="close-modal-btn" onclick="app.closeModal()">
+                <i class="fas fa-times"></i>
+            </button>
+            
+            <div id="modal-image-container">
+                <img id="modal-img" src="" alt="Detalle">
+            </div>
+
+            <div class="modal-body">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <span id="modal-badge" class="badge"></span>
+                    <span id="modal-price" style="font-size:1.5rem; font-weight:bold; color:var(--primary);"></span>
+                </div>
+
+                <h2 id="modal-title" style="margin-bottom:5px;"></h2>
+                <p id="modal-location" style="color:var(--text-light); margin-bottom:20px; display:flex; align-items:center; gap:5px;">
+                    <i class="fas fa-map-marker-alt"></i> <span></span>
+                </p>
+
+                <div style="display:flex; gap:20px; margin-bottom:20px; padding:15px; background:#f1f5f9; border-radius:10px;">
+                    <div style="text-align:center; flex:1;">
+                        <i class="fas fa-bed"></i><br>
+                        <strong id="modal-beds"></strong> Hab.
+                    </div>
+                    <div style="text-align:center; flex:1;">
+                        <i class="fas fa-bath"></i><br>
+                        <strong id="modal-baths"></strong> Baños
+                    </div>
+                </div>
+
+                <p id="modal-desc" style="line-height:1.6; color:#475569; margin-bottom:30px;"></p>
+
+                <button class="btn btn-primary" style="width:100%" onclick="app.contactAgent()">
+                    <i class="fas fa-envelope"></i> Contactar Agente
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="app.js"></script>
 </body>
 </html>
