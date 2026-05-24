@@ -206,7 +206,6 @@ if (document.getElementById('properties')) {
             
             const msgData = {
                 propName: document.getElementById('contact-prop-title').innerText,
-                propRef: app.currentContactRef, // Enviar referencia
                 clientName: document.getElementById('contact-name').value,
                 clientEmail: document.getElementById('contact-email').value,
                 clientPhone: document.getElementById('contact-phone').value,
