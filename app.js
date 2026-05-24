@@ -1,6 +1,6 @@
 // app.js
 import { db } from './firebase-config.js';
-import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc, query, orderBy, where } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { collection, getDocs, getDoc, addDoc, deleteDoc, doc, updateDoc, query, orderBy, where } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 // --- UTILIDADES ---
 const showToast = (msg, type = 'success') => {
@@ -478,9 +478,9 @@ if (document.getElementById('admin-panel')) {
                                 <strong>Notas:</strong><br>
                                 ${c.notes || 'Sin notas.'}
                             </div>
-                            <button class="btn btn-outline" style="width:100%; margin-top:10px; font-size:0.8rem; padding:5px;" onclick="adminApp.editClientNote('${d.id}', '${c.notes.replace(/'/g, "\\'")}')">
-                                <i class="fas fa-edit"></i> Añadir Nota
-                            </button>
+<button class="btn btn-outline" style="width:100%; margin-top:10px; font-size:0.8rem; padding:5px;" onclick="adminApp.editClientNote('${d.id}')">
+    <i class="fas fa-edit"></i> Añadir Nota
+</button>
                             <button class="btn btn-danger" style="width:100%; margin-top:5px; font-size:0.8rem; padding:5px;" onclick="adminApp.deleteClient('${d.id}')">
                                 Eliminar
                             </button>
@@ -491,15 +491,37 @@ if (document.getElementById('admin-panel')) {
             } catch(e) { console.error(e); }
         },
 
-        editClientNote: async (id, currentNotes) => {
-            const newNote = prompt("Añadir nueva nota (se añadirá a las existentes):");
-            if(newNote) {
-                const updatedNotes = `${currentNotes}\n\n[${new Date().toLocaleDateString()}]: ${newNote}`;
-                try {
-                    await updateDoc(doc(db, "clients", id), { notes: updatedNotes });
-                    showToast('Nota actualizada');
-                    adminApp.renderClients();
-                } catch(e) { console.error(e); }
+        editClientNote: async (id) => {
+            try {
+                // 1. Primero leemos los datos actuales del cliente para tener la nota actualizada
+                const docRef = doc(db, "clients", id);
+                const docSnap = await getDoc(docRef);
+
+                if (!docSnap.exists()) {
+                    showToast('Error: Cliente no encontrado', 'error');
+                    return;
+                }
+
+                const clientData = docSnap.data();
+                const currentNotes = clientData.notes || "Sin notas previas.";
+
+                // 2. Mostramos el prompt con la nota actual como referencia
+                const newNote = prompt(`Notas actuales:\n${currentNotes}\n\n--------------------------------\nEscribe la nueva nota a añadir abajo:`);
+
+                if (newNote && newNote.trim() !== "") {
+                    // 3. Concatenamos la nueva nota con la fecha
+                    const timestamp = new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString();
+                    const updatedNotes = `${currentNotes}\n\n[${timestamp}]:\n${newNote}`;
+
+                    // 4. Guardamos en Firestore
+                    await updateDoc(docRef, { notes: updatedNotes });
+                    
+                    showToast('Nota añadida correctamente');
+                    adminApp.renderClients(); // Recargamos la lista para ver el cambio
+                }
+            } catch (error) {
+                console.error("Error añadiendo nota:", error);
+                showToast('Error al guardar la nota', 'error');
             }
         },
 
