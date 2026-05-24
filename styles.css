@@ -358,3 +358,28 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 .status-badge.available { background-color: #10b981; } /* Verde Disponible */
 .status-badge.reserved { background-color: #3b82f6; } /* Azul Reservado */
 .status-badge.sold { background-color: #ef4444; } /* Rojo Vendido */
+
+/* --- BARRA DE FILTROS (ADMIN) --- */
+.filter-bar {
+    background: white; padding: 20px; border-radius: var(--radius);
+    box-shadow: var(--shadow); margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end;
+}
+.filter-group { flex: 1; min-width: 150px; }
+.filter-group label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 5px; color: var(--text-light); }
+.filter-input { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; }
+.btn-clear { background: #94a3b8; color: white; border: none; padding: 9px 15px; border-radius: 6px; cursor: pointer; }
+.btn-clear:hover { background: #64748b; }
+
+/* --- MODAL FORMULARIO ADMIN --- */
+#property-admin-modal .modal-content {
+    max-width: 800px; /* Más ancho para el formulario */
+    height: 90vh;
+}
+.admin-modal-form { padding: 20px; overflow-y: auto; height: 100%; }
+
+/* --- REFERENCIA (INDEX) --- */
+.ref-badge {
+    background: #f1f5f9; color: #475569; padding: 4px 8px;
+    border-radius: 4px; font-size: 0.75rem; font-family: monospace; font-weight: bold;
+    display: inline-block; margin-bottom: 5px; border: 1px solid #e2e8f0;
+}

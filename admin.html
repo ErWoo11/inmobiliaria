@@ -33,8 +33,8 @@
                 <a href="#" class="nav-link active" onclick="adminApp.switchView('dashboard', this)">
                     <i class="fas fa-chart-line"></i> Dashboard
                 </a>
-                <a href="#" class="nav-link" onclick="adminApp.switchView('properties', this)">
-                    <i class="fas fa-home"></i> Propiedades
+                <a href="#" class="nav-link" onclick="adminApp.switchView('inmuebles', this)">
+                    <i class="fas fa-home"></i> Inmuebles
                 </a>
                 <a href="#" class="nav-link" onclick="adminApp.switchView('messages', this)">
                     <i class="fas fa-envelope"></i> Mensajes
@@ -71,89 +71,144 @@
                 </div>
             </section>
 
-            <!-- VISTA PROPIEDADES -->
-            <section id="view-properties" class="admin-view" style="display:none;">
-                <h2>Gestión de Inmuebles</h2>
-                
-                <div class="admin-form">
-                    <h3 id="form-title">Nueva Propiedad</h3>
-                    <input type="hidden" id="edit-id">
-                    <form id="property-form" style="margin-top:20px;">
-                        <div class="form-grid">
-                            <div class="form-group full-width">
-                                <label>Título</label>
-                                <input type="text" id="title" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Precio (€)</label>
-                                <input type="number" id="price" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Periodo</label>
-                                <select id="period">
-                                    <option value="">Venta (Ninguno)</option>
-                                    <option value="noche">Noche</option>
-                                    <option value="mes">Mes</option>
-                                </select>
-                            </div>
-                            <div class="form-group full-width">
-                                <label>Imágenes (URLs separadas por salto de línea)</label>
-                                <textarea id="img" rows="3" placeholder="https://ejemplo.com/foto1.jpg&#10;https://ejemplo.com/foto2.jpg" required></textarea>
-                                <small style="color:#666">Pega una URL por línea para crear una galería.</small>
-                            </div>
-                            <div class="form-group">
-                                <label>Tipo</label>
-                                <select id="type" required>
-                                    <option value="rent">Alquiler</option>
-                                    <option value="sale">Venta</option>
-                                </select>
-                            </div>
-
-                            <div class="form-group">
-                                <label>Estado de la Propiedad</label>
-                                <select id="status">
-                                    <option value="available">Disponible</option>
-                                    <option value="reserved">Reservado (Azul)</option>
-                                    <option value="sold">Vendido (Rojo)</option>
-                                </select>
-                            </div>
-
-                            <div class="form-group">
-                                <label>Categoría</label>
-                                <select id="category">
-                                    <option value="apartamento">Apartamento</option>
-                                    <option value="villa">Villa</option>
-                                    <option value="piso">Piso</option>
-                                    <option value="parcela">Parcela</option>
-                                </select>
-                            </div>
-                            <div class="form-group full-width">
-                                <label>Ubicación</label>
-                                <input type="text" id="location" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Habitaciones</label>
-                                <input type="number" id="beds" value="2">
-                            </div>
-                            <div class="form-group">
-                                <label>Baños</label>
-                                <input type="number" id="baths" value="1">
-                            </div>
-                            <div class="form-group full-width">
-                                <label>Descripción</label>
-                                <textarea id="desc" rows="3"></textarea>
-                            </div>
-                        </div>
-                        <div style="display:flex; gap:10px;">
-                            <button type="submit" class="btn btn-primary" id="btn-save">Publicar</button>
-                            <button type="button" class="btn btn-outline" id="btn-cancel" style="display:none;" onclick="adminApp.resetForm()">Cancelar</button>
-                        </div>
-                    </form>
+            <!-- VISTA INMUEBLES -->
+            <section id="view-inmuebles" class="admin-view" style="display:none;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <h2>Gestión de Inmuebles</h2>
+                    <button class="btn btn-primary" onclick="adminApp.openPropertyModal()">
+                        <i class="fas fa-plus"></i> Añadir Inmueble
+                    </button>
                 </div>
 
-                <h3>Listado</h3>
+                <!-- BARRA DE FILTROS -->
+                <div class="filter-bar">
+                    <div class="filter-group">
+                        <label>Nº Referencia</label>
+                        <input type="text" id="filter-ref" class="filter-input" placeholder="REF-..." onkeyup="adminApp.applyFilters()">
+                    </div>
+                    <div class="filter-group">
+                        <label>Estado</label>
+                        <select id="filter-status" class="filter-input" onchange="adminApp.applyFilters()">
+                            <option value="">Todos</option>
+                            <option value="available">Disponible</option>
+                            <option value="reserved">Reservado</option>
+                            <option value="sold">Vendido</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Tipo</label>
+                        <select id="filter-type" class="filter-input" onchange="adminApp.applyFilters()">
+                            <option value="">Todos</option>
+                            <option value="rent">Alquiler</option>
+                            <option value="sale">Venta</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Categoría</label>
+                        <select id="filter-category" class="filter-input" onchange="adminApp.applyFilters()">
+                            <option value="">Todas</option>
+                            <option value="apartamento">Apartamento</option>
+                            <option value="villa">Villa</option>
+                            <option value="piso">Piso</option>
+                            <option value="parcela">Parcela</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Mes</label>
+                        <input type="month" id="filter-date" class="filter-input" onchange="adminApp.applyFilters()">
+                    </div>
+                    <div class="filter-group">
+                        <button class="btn-clear" onclick="adminApp.clearFilters()">Limpiar Filtros</button>
+                    </div>
+                </div>
+
+                <!-- GRID DE INMUEBLES -->
                 <div id="admin-list" class="properties-grid"></div>
             </section>
+
+            <!-- MODAL DE FORMULARIO (OCULTO) -->
+            <div id="property-admin-modal" class="modal-overlay">
+                <div class="modal-content">
+                    <button class="close-modal-btn" onclick="adminApp.closePropertyModal()"><i class="fas fa-times"></i></button>
+                    <div class="admin-modal-form">
+                        <h3 id="form-title-modal">Nuevo Inmueble</h3>
+                        <input type="hidden" id="edit-id">
+                        
+                        <!-- Nº Referencia (Solo lectura) -->
+                        <div class="form-group">
+                            <label>Nº Referencia (Generado automáticamente)</label>
+                            <input type="text" id="ref-number" class="form-input" readonly style="background:#f1f5f9; color:#64748b;">
+                        </div>
+
+                        <form id="property-form-modal">
+                            <!-- El resto del formulario igual que antes, pero con IDs únicos si es necesario (los mantendremos iguales por simplicidad si el JS los llama bien, pero para evitar conflictos usaremos los mismos IDs ya que el modal está oculto) -->
+                            <div class="form-grid">
+                                <div class="form-group full-width">
+                                    <label>Título</label>
+                                    <input type="text" id="title" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Precio (€)</label>
+                                    <input type="number" id="price" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Periodo</label>
+                                    <select id="period">
+                                        <option value="">Venta</option>
+                                        <option value="noche">Noche</option>
+                                        <option value="mes">Mes</option>
+                                    </select>
+                                </div>
+                                <div class="form-group full-width">
+                                    <label>Imágenes (URLs separadas por salto de línea)</label>
+                                    <textarea id="img" rows="3" required></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label>Tipo</label>
+                                    <select id="type" required>
+                                        <option value="rent">Alquiler</option>
+                                        <option value="sale">Venta</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Estado</label>
+                                    <select id="status">
+                                        <option value="available">Disponible</option>
+                                        <option value="reserved">Reservado</option>
+                                        <option value="sold">Vendido</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Categoría</label>
+                                    <select id="category">
+                                        <option value="apartamento">Apartamento</option>
+                                        <option value="villa">Villa</option>
+                                        <option value="piso">Piso</option>
+                                        <option value="parcela">Parcela</option>
+                                    </select>
+                                </div>
+                                <div class="form-group full-width">
+                                    <label>Ubicación</label>
+                                    <input type="text" id="location" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Habitaciones</label>
+                                    <input type="number" id="beds" value="2">
+                                </div>
+                                <div class="form-group">
+                                    <label>Baños</label>
+                                    <input type="number" id="baths" value="1">
+                                </div>
+                                <div class="form-group full-width">
+                                    <label>Descripción</label>
+                                    <textarea id="desc" rows="3"></textarea>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary" id="btn-save-modal" style="width:100%">Guardar Inmueble</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
 
             <!-- VISTA MENSAJES -->
             <section id="view-messages" class="admin-view" style="display:none;">
