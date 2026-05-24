@@ -88,6 +88,39 @@
         </div>
     </div>
 
+    <!-- MODAL DE CONTACTO (NUEVO) -->
+    <div id="contact-modal" class="modal-overlay">
+        <div class="modal-content" style="height: auto; max-height: 85vh;">
+            <button class="close-modal-btn" onclick="app.closeContactModal()">
+                <i class="fas fa-times"></i>
+            </button>
+            <div style="padding: 30px;">
+                <h2 style="margin-bottom: 10px; color: var(--primary);">Contactar Agente</h2>
+                <p style="color: #666; margin-bottom: 20px;">Estás interesado en: <strong id="contact-prop-title"></strong></p>
+                
+                <form id="contact-form" onsubmit="app.sendContact(event)">
+                    <div class="form-group">
+                        <label>Nombre Completo</label>
+                        <input type="text" id="contact-name" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="contact-email" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Teléfono</label>
+                        <input type="tel" id="contact-phone" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Mensaje</label>
+                        <textarea id="contact-message" class="form-textarea" rows="3" placeholder="Hola, me interesa esta propiedad..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">Enviar Solicitud</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="app.js"></script>
 </body>
 </html>
