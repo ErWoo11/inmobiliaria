@@ -70,8 +70,14 @@
                 <i class="fas fa-times"></i>
             </button>
             
+            <!-- NUEVO SLIDER DE IMÁGENES -->
             <div id="modal-image-container">
-                <img id="modal-img" src="" alt="Detalle">
+                <div class="modal-slider" id="modal-slider">
+                    <!-- Las imágenes se inyectan aquí vía JS -->
+                </div>
+                <button class="slider-btn slider-prev" onclick="app.changeSlide(-1)"><i class="fas fa-chevron-left"></i></button>
+                <button class="slider-btn slider-next" onclick="app.changeSlide(1)"><i class="fas fa-chevron-right"></i></button>
+                <div class="slider-dots" id="slider-dots"></div>
             </div>
 
             <div class="modal-body">
@@ -98,7 +104,6 @@
 
                 <p id="modal-desc" style="line-height:1.6; color:#475569; margin-bottom:30px;"></p>
 
-                <!-- Botón que abre el modal de contacto -->
                 <button class="btn btn-primary" style="width:100%" onclick="app.contactAgent()">
                     <i class="fas fa-envelope"></i> Contactar Agente
                 </button>

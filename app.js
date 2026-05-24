@@ -1,40 +1,38 @@
 // app.js
 import { db } from './firebase-config.js';
-import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc, query, orderBy, where } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-// --- UTILIDADES GLOBALES ---
-const showToast = (message, type = 'success') => {
+// --- UTILIDADES ---
+const showToast = (msg, type = 'success') => {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    toast.innerText = message;
-    toast.style.cssText = `
-        position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
-        background: ${type === 'success' ? '#10b981' : '#ef4444'}; color: white;
-        padding: 12px 24px; border-radius: 30px; font-weight: 600; z-index: 2000;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15); animation: fadeInUp 0.3s forwards;
-    `;
+    toast.innerText = msg;
+    toast.style.cssText = `position:fixed; bottom:90px; left:50%; transform:translateX(-50%); background:${type==='success'?'#10b981':'#ef4444'}; color:white; padding:12px 24px; border-radius:30px; font-weight:600; z-index:2000; box-shadow:0 4px 12px rgba(0,0,0,0.15); animation:fadeInUp 0.3s forwards;`;
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 3000);
 };
 
-const formatPrice = (price) => {
-    return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(price);
-};
+const formatPrice = (price) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR' }).format(price);
 
-// --- LÓGICA DE INDEX (CLIENTE) ---
+// ==========================================
+// LÓGICA INDEX (CLIENTE)
+// ==========================================
 if (document.getElementById('properties')) {
-    const state = { properties: [], filter: 'all' };
+    const state = { properties: [], filter: 'all', currentImages: [], currentSlide: 0 };
 
     const createCard = (prop, index) => {
         const delay = index * 100; 
         const badgeClass = prop.type === 'rent' ? 'badge-rent' : 'badge-sale';
         const badgeText = prop.type === 'rent' ? 'Alquiler' : 'Venta';
+        // Mostrar solo la primera imagen en la tarjeta
+        const mainImg = Array.isArray(prop.img) && prop.img.length > 0 ? prop.img[0] : (prop.img || 'https://picsum.photos/400/300');
         const price = prop.period ? `${formatPrice(prop.price)} /${prop.period}` : formatPrice(prop.price);
 
         return `
             <div class="card" style="animation-delay: ${delay}ms" onclick="app.showDetail('${prop.id}')">
                 <div style="overflow: hidden; position: relative;">
-                    <img src="${prop.img}" class="card-img" alt="${prop.title}" loading="lazy">
+                    <img src="${mainImg}" class="card-img" alt="${prop.title}" loading="lazy">
+                    ${Array.isArray(prop.img) && prop.img.length > 1 ? `<span style="position:absolute; bottom:10px; right:10px; background:rgba(0,0,0,0.6); color:white; padding:2px 6px; border-radius:10px; font-size:0.7rem;"><i class="fas fa-images"></i> +${prop.img.length-1}</span>` : ''}
                     <span class="badge ${badgeClass}" style="position: absolute; top: 15px; left: 15px; z-index: 10;">${badgeText}</span>
                 </div>
                 <div class="card-body">
@@ -53,15 +51,12 @@ if (document.getElementById('properties')) {
     const loadProperties = async (filterType = 'all') => {
         const grid = document.getElementById('properties-grid');
         grid.innerHTML = '<div style="text-align:center; grid-column:1/-1; padding:40px;"><i class="fas fa-circle-notch fa-spin fa-2x" style="color:var(--primary)"></i></div>';
-
         try {
             const q = query(collection(db, "properties"), orderBy("createdAt", "desc"));
             const querySnapshot = await getDocs(q);
-            
             state.properties = []; 
             let html = '';
             let counter = 0;
-
             querySnapshot.forEach((doc) => {
                 const data = { id: doc.id, ...doc.data() };
                 state.properties.push(data);
@@ -70,14 +65,8 @@ if (document.getElementById('properties')) {
                     counter++;
                 }
             });
-
-            grid.innerHTML = html || '<p style="text-align:center; grid-column:1/-1; color:#888;">No se encontraron propiedades.</p>';
-
-        } catch (error) {
-            console.error(error);
-            grid.innerHTML = '<p style="text-align:center; color:red;">Error de conexión.</p>';
-            showToast('Error de conexión', 'error');
-        }
+            grid.innerHTML = html || '<p style="text-align:center; grid-column:1/-1; color:#888;">No hay propiedades.</p>';
+        } catch (error) { console.error(error); grid.innerHTML = '<p style="text-align:center; color:red;">Error de conexión.</p>'; }
     };
 
     window.app = {
@@ -91,9 +80,16 @@ if (document.getElementById('properties')) {
         showDetail: (id) => {
             const property = state.properties.find(p => p.id === id);
             if (!property) return;
+
+            // Preparar imágenes (Array)
+            state.currentImages = Array.isArray(property.img) ? property.img : [property.img || 'https://picsum.photos/400/300'];
+            state.currentSlide = 0;
+
+            // Renderizar Slider
+            app.renderSlider();
+
+            // Datos Texto
             const priceText = property.period ? `${formatPrice(property.price)} /${property.period}` : formatPrice(property.price);
-            
-            document.getElementById('modal-img').src = property.img;
             document.getElementById('modal-title').innerText = property.title;
             document.getElementById('modal-price').innerText = priceText;
             document.getElementById('modal-location').querySelector('span').innerText = property.location;
@@ -109,150 +105,150 @@ if (document.getElementById('properties')) {
             document.body.style.overflow = 'hidden';
         },
 
+        renderSlider: () => {
+            const slider = document.getElementById('modal-slider');
+            const dots = document.getElementById('slider-dots');
+            slider.innerHTML = '';
+            dots.innerHTML = '';
+
+            state.currentImages.forEach((imgUrl, index) => {
+                // Slide
+                const div = document.createElement('div');
+                div.className = `modal-slide ${index === 0 ? 'active' : ''}`;
+                div.innerHTML = `<img src="${imgUrl}" style="width:100%; height:100%; object-fit:contain;">`;
+                slider.appendChild(div);
+
+                // Dot
+                const dot = document.createElement('div');
+                dot.className = `dot ${index === 0 ? 'active' : ''}`;
+                dot.onclick = () => app.goToSlide(index);
+                dots.appendChild(dot);
+            });
+        },
+
+        changeSlide: (dir) => {
+            const slides = document.querySelectorAll('.modal-slide');
+            const dots = document.querySelectorAll('.dot');
+            slides[state.currentSlide].classList.remove('active');
+            dots[state.currentSlide].classList.remove('active');
+
+            state.currentSlide += dir;
+            if (state.currentSlide >= slides.length) state.currentSlide = 0;
+            if (state.currentSlide < 0) state.currentSlide = slides.length - 1;
+
+            slides[state.currentSlide].classList.add('active');
+            dots[state.currentSlide].classList.add('active');
+        },
+
+        goToSlide: (index) => {
+            const slides = document.querySelectorAll('.modal-slide');
+            const dots = document.querySelectorAll('.dot');
+            slides[state.currentSlide].classList.remove('active');
+            dots[state.currentSlide].classList.remove('active');
+            state.currentSlide = index;
+            slides[state.currentSlide].classList.add('active');
+            dots[state.currentSlide].classList.add('active');
+        },
+
         closeModal: () => {
             document.getElementById('property-modal').classList.remove('open');
             document.body.style.overflow = '';
         },
 
-        // NUEVA LÓGICA DE CONTACTO
         contactAgent: () => {
-            const title = document.getElementById('modal-title').innerText;
-            document.getElementById('contact-prop-title').innerText = title;
+            document.getElementById('contact-prop-title').innerText = document.getElementById('modal-title').innerText;
             document.getElementById('contact-modal').classList.add('open');
         },
-
-        closeContactModal: () => {
-            document.getElementById('contact-modal').classList.remove('open');
-        },
+        closeContactModal: () => document.getElementById('contact-modal').classList.remove('open'),
 
         sendContact: async (e) => {
             e.preventDefault();
             const btn = e.target.querySelector('button');
-            const originalText = btn.innerText;
-            btn.innerText = 'Enviando...';
-            btn.disabled = true;
-
+            btn.disabled = true; btn.innerText = 'Enviando...';
             const msgData = {
                 propName: document.getElementById('contact-prop-title').innerText,
                 clientName: document.getElementById('contact-name').value,
                 clientEmail: document.getElementById('contact-email').value,
                 clientPhone: document.getElementById('contact-phone').value,
                 message: document.getElementById('contact-message').value,
+                read: false, // Por defecto no leído
                 date: new Date()
             };
-
             try {
                 await addDoc(collection(db, "messages"), msgData);
-                showToast('¡Mensaje enviado al agente!', 'success');
+                showToast('¡Mensaje enviado!', 'success');
                 app.closeContactModal();
                 e.target.reset();
-            } catch (err) {
-                showToast('Error al enviar', 'error');
-            } finally {
-                btn.innerText = originalText;
-                btn.disabled = false;
-            }
+            } catch (err) { showToast('Error', 'error'); }
+            finally { btn.disabled = false; btn.innerText = 'Enviar Solicitud'; }
         }
     };
-
     document.getElementById('property-modal').addEventListener('click', (e) => { if (e.target.id === 'property-modal') app.closeModal(); });
     document.getElementById('contact-modal').addEventListener('click', (e) => { if (e.target.id === 'contact-modal') app.closeContactModal(); });
-
     document.addEventListener('DOMContentLoaded', app.init);
 }
 
-
-// --- LÓGICA DE ADMIN ---
+// ==========================================
+// LÓGICA ADMIN
+// ==========================================
 if (document.getElementById('admin-panel')) {
-
     const adminApp = {
-        data: { properties: [], messages: [] },
+        data: { properties: [], messages: [], clients: [] },
 
         init: async () => {
-            adminApp.loadDashboard(); // Carga stats y datos iniciales
-            
-            // Listener Formulario (Crear/Editar)
+            adminApp.loadDashboard();
             document.getElementById('property-form').addEventListener('submit', adminApp.saveProperty);
         },
 
-        // --- NAVEGACIÓN ENTRE VISTAS ---
         switchView: (viewName, btnElement) => {
-            // Ocultar todas
             document.querySelectorAll('.admin-view').forEach(el => el.style.display = 'none');
-            // Mostrar seleccionada
             document.getElementById(`view-${viewName}`).style.display = 'block';
-            
-            // Actualizar Sidebar
-            if(btnElement) {
-                document.querySelectorAll('.admin-sidebar .nav-link').forEach(l => l.classList.remove('active'));
-                btnElement.classList.add('active');
-            }
-
+            if(btnElement) { document.querySelectorAll('.admin-sidebar .nav-link').forEach(l => l.classList.remove('active')); btnElement.classList.add('active'); }
             if (viewName === 'dashboard') adminApp.loadDashboard();
             if (viewName === 'properties') adminApp.renderProperties();
             if (viewName === 'messages') adminApp.renderMessages();
+            if (viewName === 'clients') adminApp.renderClients();
         },
 
         // --- DASHBOARD ---
         loadDashboard: async () => {
             try {
-                // Cargar propiedades
-                const pSnap = await getDocs(query(collection(db, "properties")));
-                const properties = pSnap.docs.map(d => ({id: d.id, ...d.data()}));
+                const [pSnap, mSnap, cSnap] = await Promise.all([
+                    getDocs(query(collection(db, "properties"))),
+                    getDocs(query(collection(db, "messages"))),
+                    getDocs(query(collection(db, "clients")))
+                ]);
                 
-                // Cargar mensajes
-                const mSnap = await getDocs(query(collection(db, "messages"), orderBy("date", "desc")));
-                const messages = mSnap.docs.map(d => d.data());
-
-                // Calcular Stats
-                const totalProps = properties.length;
-                const totalMsgs = messages.length;
-                const rentals = properties.filter(p => p.type === 'rent').length;
-                const sales = properties.filter(p => p.type === 'sale').length;
-
-                // Animar números
-                document.getElementById('stat-props').innerText = totalProps;
-                document.getElementById('stat-msgs').innerText = totalMsgs;
-                document.getElementById('stat-rentals').innerText = rentals;
-                document.getElementById('stat-sales').innerText = sales;
-
-                // Badge en sidebar
+                document.getElementById('stat-props').innerText = pSnap.size;
+                document.getElementById('stat-msgs').innerText = mSnap.size;
+                document.getElementById('stat-clients').innerText = cSnap.size;
+                
                 const badge = document.getElementById('msg-badge');
-                if (totalMsgs > 0) {
-                    badge.style.display = 'inline-block';
-                    badge.innerText = totalMsgs;
-                } else {
-                    badge.style.display = 'none';
-                }
-
-            } catch (error) { console.error("Dashboard error:", error); }
+                if (mSnap.size > 0) { badge.style.display = 'inline-block'; badge.innerText = mSnap.size; } 
+                else { badge.style.display = 'none'; }
+            } catch (e) { console.error(e); }
         },
 
-        // --- PROPIEDADES (CRUD) ---
+        // --- PROPIEDADES ---
         renderProperties: async () => {
             const listContainer = document.getElementById('admin-list');
             listContainer.innerHTML = '<div style="text-align:center; grid-column:1/-1;"><i class="fas fa-spinner fa-spin"></i></div>';
-            
             try {
                 const q = query(collection(db, "properties"), orderBy("createdAt", "desc"));
                 const snapshot = await getDocs(q);
-                
                 let html = '';
                 snapshot.forEach(docSnap => {
                     const p = docSnap.data();
+                    const imgDisplay = Array.isArray(p.img) ? p.img[0] : p.img;
                     html += `
                         <div class="card" style="padding:15px; display:flex; flex-direction:column; justify-content:space-between;">
-                            <img src="${p.img}" style="height:150px; width:100%; object-fit:cover; border-radius:8px; margin-bottom:10px;">
+                            <img src="${imgDisplay}" style="height:150px; width:100%; object-fit:cover; border-radius:8px; margin-bottom:10px;">
                             <div>
                                 <h4 style="margin-bottom:5px;">${p.title}</h4>
                                 <small style="color:var(--primary); font-weight:bold;">${formatPrice(p.price)}</small>
                                 <div style="margin-top:10px; display:flex; gap:10px;">
-                                    <button class="btn btn-primary" style="flex:1; padding:5px; font-size:0.8rem;" onclick="adminApp.editProperty('${docSnap.id}')">
-                                        <i class="fas fa-edit"></i> Editar
-                                    </button>
-                                    <button class="btn btn-danger" style="padding: 5px 10px; font-size:0.8rem;" onclick="adminApp.deleteProperty('${docSnap.id}')">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
+                                    <button class="btn btn-primary" style="flex:1; padding:5px; font-size:0.8rem;" onclick="adminApp.editProperty('${docSnap.id}')"><i class="fas fa-edit"></i> Editar</button>
+                                    <button class="btn btn-danger" style="padding: 5px 10px; font-size:0.8rem;" onclick="adminApp.deleteProperty('${docSnap.id}')"><i class="fas fa-trash"></i></button>
                                 </div>
                             </div>
                         </div>
@@ -266,9 +262,12 @@ if (document.getElementById('admin-panel')) {
             e.preventDefault();
             const editId = document.getElementById('edit-id').value;
             const btn = document.getElementById('btn-save');
-            
             btn.disabled = true;
             btn.innerText = editId ? 'Actualizando...' : 'Guardando...';
+
+            // Procesar imágenes: Convertir textarea en array
+            const rawImages = document.getElementById('img').value;
+            const imagesArray = rawImages.split('\n').map(url => url.trim()).filter(url => url !== '');
 
             const formData = {
                 title: document.getElementById('title').value,
@@ -279,40 +278,30 @@ if (document.getElementById('admin-panel')) {
                 location: document.getElementById('location').value,
                 beds: Number(document.getElementById('beds').value),
                 baths: Number(document.getElementById('baths').value),
-                img: document.getElementById('img').value,
+                img: imagesArray, // Guardar como Array
                 desc: document.getElementById('desc').value,
             };
 
             try {
                 if (editId) {
-                    // ACTUALIZAR
                     await updateDoc(doc(db, "properties", editId), formData);
-                    showToast('Propiedad actualizada');
+                    showToast('Actualizado');
                 } else {
-                    // CREAR
                     await addDoc(collection(db, "properties"), { ...formData, createdAt: new Date() });
-                    showToast('Propiedad creada');
+                    showToast('Creado');
                 }
                 adminApp.resetForm();
                 adminApp.renderProperties();
-            } catch (error) {
-                console.error(error);
-                showToast('Error al guardar', 'error');
-            } finally {
-                btn.disabled = false;
-                btn.innerText = editId ? 'Actualizar' : 'Publicar';
-            }
+            } catch (error) { console.error(error); showToast('Error', 'error'); }
+            finally { btn.disabled = false; btn.innerText = editId ? 'Actualizar' : 'Publicar'; }
         },
 
         editProperty: async (id) => {
-            // Buscar en DOM (rápido) o BD (seguro). Haremos query rápida.
             try {
                 const docSnap = await getDocs(query(collection(db, "properties")));
                 let prop = null;
                 docSnap.forEach(d => { if(d.id === id) prop = {id: d.id, ...d.data()}; });
-
                 if(prop) {
-                    // Rellenar formulario
                     document.getElementById('edit-id').value = prop.id;
                     document.getElementById('title').value = prop.title;
                     document.getElementById('price').value = prop.price;
@@ -322,27 +311,23 @@ if (document.getElementById('admin-panel')) {
                     document.getElementById('location').value = prop.location;
                     document.getElementById('beds').value = prop.beds;
                     document.getElementById('baths').value = prop.baths;
-                    document.getElementById('img').value = prop.img;
-                    document.getElementById('desc').value = prop.desc || "";
+                    
+                    // Convertir array a texto para el textarea
+                    const imgText = Array.isArray(prop.img) ? prop.img.join('\n') : prop.img;
+                    document.getElementById('img').value = imgText;
 
-                    // Cambiar estado visual del formulario
+                    document.getElementById('desc').value = prop.desc || "";
                     document.getElementById('form-title').innerHTML = '<i class="fas fa-edit"></i> Editar Propiedad';
                     document.getElementById('btn-save').innerText = 'Actualizar Propiedad';
                     document.getElementById('btn-cancel').style.display = 'inline-block';
-
-                    // Scroll arriba al formulario
                     document.querySelector('.admin-main').scrollTo({ top: 0, behavior: 'smooth' });
                 }
             } catch(e) { console.error(e); }
         },
 
         deleteProperty: async (id) => {
-            if(!confirm('¿Eliminar esta propiedad?')) return;
-            try {
-                await deleteDoc(doc(db, "properties", id));
-                showToast('Eliminado');
-                adminApp.renderProperties();
-            } catch(e) { showToast('Error al eliminar', 'error'); }
+            if(!confirm('¿Eliminar propiedad?')) return;
+            try { await deleteDoc(doc(db, "properties", id)); showToast('Eliminado'); adminApp.renderProperties(); } catch(e) { showToast('Error', 'error'); }
         },
 
         resetForm: () => {
@@ -353,39 +338,174 @@ if (document.getElementById('admin-panel')) {
             document.getElementById('btn-cancel').style.display = 'none';
         },
 
-        // --- MENSAJES ---
+        // --- MENSAJES (ACTUALIZADO) ---
         renderMessages: async () => {
             const container = document.getElementById('messages-container');
             container.innerHTML = '<p>Cargando...</p>';
-            
             try {
                 const q = query(collection(db, "messages"), orderBy("date", "desc"));
                 const snap = await getDocs(q);
                 
-                if(snap.empty) {
-                    container.innerHTML = '<p>No hay mensajes nuevos.</p>';
-                    return;
-                }
+                // Cargar clientes para verificar duplicados
+                const cSnap = await getDocs(collection(db, "clients"));
+                const clientMap = new Map();
+                cSnap.forEach(c => {
+                    const data = c.data();
+                    clientMap.set(data.email, true);
+                    if(data.phone) clientMap.set(data.phone, true);
+                });
+
+                if(snap.empty) { container.innerHTML = '<p>No hay mensajes.</p>'; return; }
 
                 let html = '';
-                snap.forEach(doc => {
-                    const m = doc.data();
-                    const date = m.date ? new Date(m.date).toLocaleDateString() : 'Fecha desconocida';
+                snap.forEach(d => {
+                    const m = d.data();
+                    const isRead = m.read === true;
+                    const date = m.date ? new Date(m.date).toLocaleDateString() : '';
+                    
+                    // Verificar si ya está en seguimiento
+                    const isTracked = clientMap.has(m.clientEmail) || clientMap.has(m.clientPhone);
+                    const addBtnState = isTracked ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : `onclick="adminApp.addToTracking('${d.id}')"`;
+                    const addBtnText = isTracked ? 'En Seguimiento' : 'Añadir a Seguimiento';
+
                     html += `
-                        <div class="message-item">
+                        <div class="message-item ${isRead ? 'read' : 'unread'}">
                             <div class="msg-info">
-                                <h4>${m.clientName} <small>(${m.clientEmail})</small></h4>
+                                <h4>${m.clientName} <small>(${m.clientEmail})</small> ${!isRead ? '<span style="color:var(--accent); font-size:0.7rem;">NUEVO</span>' : ''}</h4>
                                 <p style="margin:5px 0; color:#444;">${m.message}</p>
                                 <small><i class="fas fa-phone"></i> ${m.clientPhone} • ${date}</small>
+                                <div style="font-size:0.8rem; color:var(--primary); margin-top:2px;">Interés: ${m.propName}</div>
                             </div>
                             <div style="text-align:right;">
-                                <div class="msg-prop">Interesado en: ${m.propName}</div>
+                                <div class="msg-actions">
+                                    <button class="btn-xs btn-read" onclick="adminApp.toggleRead('${d.id}', ${!isRead})">
+                                        ${isRead ? 'Marcar No Leído' : 'Marcar Leído'}
+                                    </button>
+                                    <button class="btn-xs btn-delete" onclick="adminApp.deleteMessage('${d.id}')"><i class="fas fa-trash"></i></button>
+                                </div>
+                                <button class="btn-xs btn-add-client" style="margin-top:5px; width:100%;" ${addBtnState}>
+                                    ${addBtnText}
+                                </button>
                             </div>
                         </div>
                     `;
                 });
                 container.innerHTML = html;
             } catch(e) { console.error(e); }
+        },
+
+        toggleRead: async (id, status) => {
+            try { await updateDoc(doc(db, "messages", id), { read: status }); adminApp.renderMessages(); } catch(e) { console.error(e); }
+        },
+
+        deleteMessage: async (id) => {
+            if(!confirm('¿Eliminar mensaje?')) return;
+            try { await deleteDoc(doc(db, "messages", id)); adminApp.renderMessages(); showToast('Eliminado'); } catch(e) { console.error(e); }
+        },
+
+        deleteAllMessages: async () => {
+            if(!confirm('⚠️ ESTÁS A PUNTO DE BORRAR TODOS LOS MENSAJES. ¿Continuar?')) return;
+            try {
+                const snap = await getDocs(collection(db, "messages"));
+                const batch = snap.docs.map(d => deleteDoc(doc(db, "messages", d.id)));
+                await Promise.all(batch);
+                showToast('Todos los mensajes eliminados');
+                adminApp.renderMessages();
+            } catch(e) { console.error(e); showToast('Error al borrar todo', 'error'); }
+        },
+
+        // --- CLIENTES / SEGUIMIENTO (NUEVO) ---
+        addToTracking: async (msgId) => {
+            try {
+                // Obtener datos del mensaje
+                const mSnap = await getDocs(query(collection(db, "messages"), where("__name__", "==", msgId)));
+                if(mSnap.empty) return;
+                const msg = mSnap.docs[0].data();
+
+                await addDoc(collection(db, "clients"), {
+                    name: msg.clientName,
+                    email: msg.clientEmail,
+                    phone: msg.clientPhone,
+                    notes: `Interés inicial en: ${msg.propName}. Mensaje: "${msg.message}"`,
+                    createdAt: new Date()
+                });
+                showToast('Cliente añadido a seguimiento');
+                adminApp.renderMessages(); // Actualizar botones
+            } catch(e) { console.error(e); showToast('Error', 'error'); }
+        },
+
+        addManualClient: async () => {
+            const name = document.getElementById('new-client-name').value;
+            const email = document.getElementById('new-client-email').value;
+            const phone = document.getElementById('new-client-phone').value;
+
+            if(!name || !email) return alert('Nombre y Email requeridos');
+
+            try {
+                await addDoc(collection(db, "clients"), {
+                    name, email, phone, notes: 'Añadido manualmente', createdAt: new Date()
+                });
+                showToast('Cliente creado');
+                document.getElementById('new-client-name').value = '';
+                document.getElementById('new-client-email').value = '';
+                document.getElementById('new-client-phone').value = '';
+                document.getElementById('add-client-form').style.display = 'none';
+                adminApp.renderClients();
+            } catch(e) { console.error(e); }
+        },
+
+        renderClients: async () => {
+            const container = document.getElementById('clients-container');
+            container.innerHTML = '<p>Cargando clientes...</p>';
+            try {
+                const q = query(collection(db, "clients"), orderBy("createdAt", "desc"));
+                const snap = await getDocs(q);
+                
+                if(snap.empty) { container.innerHTML = '<p>No hay clientes en seguimiento.</p>'; return; }
+
+                let html = '';
+                snap.forEach(d => {
+                    const c = d.data();
+                    html += `
+                        <div class="client-card">
+                            <div class="client-header">
+                                <h4 style="margin:0;">${c.name}</h4>
+                                <small>${c.createdAt ? new Date(c.createdAt).toLocaleDateString() : ''}</small>
+                            </div>
+                            <p style="font-size:0.9rem; color:#666; margin-bottom:5px;"><i class="fas fa-envelope"></i> ${c.email}</p>
+                            <p style="font-size:0.9rem; color:#666;"><i class="fas fa-phone"></i> ${c.phone || 'N/A'}</p>
+                            <div class="client-notes">
+                                <strong>Notas:</strong><br>
+                                ${c.notes || 'Sin notas.'}
+                            </div>
+                            <button class="btn btn-outline" style="width:100%; margin-top:10px; font-size:0.8rem; padding:5px;" onclick="adminApp.editClientNote('${d.id}', '${c.notes.replace(/'/g, "\\'")}')">
+                                <i class="fas fa-edit"></i> Añadir Nota
+                            </button>
+                            <button class="btn btn-danger" style="width:100%; margin-top:5px; font-size:0.8rem; padding:5px;" onclick="adminApp.deleteClient('${d.id}')">
+                                Eliminar
+                            </button>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            } catch(e) { console.error(e); }
+        },
+
+        editClientNote: async (id, currentNotes) => {
+            const newNote = prompt("Añadir nueva nota (se añadirá a las existentes):");
+            if(newNote) {
+                const updatedNotes = `${currentNotes}\n\n[${new Date().toLocaleDateString()}]: ${newNote}`;
+                try {
+                    await updateDoc(doc(db, "clients", id), { notes: updatedNotes });
+                    showToast('Nota actualizada');
+                    adminApp.renderClients();
+                } catch(e) { console.error(e); }
+            }
+        },
+
+        deleteClient: async (id) => {
+            if(!confirm('¿Eliminar cliente del seguimiento?')) return;
+            try { await deleteDoc(doc(db, "clients", id)); adminApp.renderClients(); } catch(e) { console.error(e); }
         }
     };
 
