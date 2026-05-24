@@ -256,6 +256,7 @@ if (document.getElementById('properties')) {
             
             const msgData = {
                 propName: document.getElementById('contact-prop-title').innerText,
+                propRef: app.currentContactRef, // Enviar referencia
                 clientName: document.getElementById('contact-name').value,
                 clientEmail: document.getElementById('contact-email').value,
                 clientPhone: document.getElementById('contact-phone').value,
@@ -579,7 +580,8 @@ if (document.getElementById('admin-panel')) {
                                 <h4>${m.clientName} <small>(${m.clientEmail})</small> ${!isRead ? '<span style="color:var(--accent); font-size:0.7rem;">NUEVO</span>' : ''}</h4>
                                 <p style="margin:5px 0; color:#444;">${m.message}</p>
                                 <small><i class="fas fa-phone"></i> ${m.clientPhone} • ${date}</small>
-                                <div style="font-size:0.8rem; color:var(--primary); margin-top:2px;">Interés: ${m.propName} ${m.propRef ? : ''}</div>
+                                <!-- CORRECCIÓN AQUÍ: Añadido valor verdadero al ternario -->
+                                <div style="font-size:0.8rem; color:var(--primary); margin-top:2px;">Interés: ${m.propName} ${m.propRef ? `(${m.propRef})` : ''}</div>
                             </div>
                             <div style="text-align:right;">
                                 <div class="msg-actions">
@@ -630,7 +632,8 @@ if (document.getElementById('admin-panel')) {
                     name: msg.clientName,
                     email: msg.clientEmail,
                     phone: msg.clientPhone,
-                    notes: `Interés inicial en: ${msg.propName} ${msg.propRef ? : ''}. Mensaje: "${msg.message}"`,
+                    // CORRECCIÓN AQUÍ: Añadido valor verdadero al ternario
+                    notes: `Interés inicial en: ${msg.propName} ${msg.propRef ? `(${msg.propRef})` : ''}. Mensaje: "${msg.message}"`,
                     createdAt: new Date()
                 });
                 showToast('Cliente añadido a seguimiento');
