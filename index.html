@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InmoTravel | Lujo y Comodidad</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+    <header>
+        <div class="container nav-content">
+            <a href="#" class="logo"><i class="fas fa-building-user"></i> InmoTravel</a>
+            <div class="desktop-only">
+                <a href="admin.html" class="btn btn-primary" style="font-size:0.8rem; padding: 8px 16px;">Acceso Agencia</a>
+            </div>
+        </div>
+    </header>
+
+    <section class="hero">
+        <div class="container">
+            <h1>Encuentra tu espacio<br>en el mundo</h1>
+            <p>Vacaciones exclusivas o tu nuevo hogar.</p>
+            <div style="display:flex; gap:15px; justify-content:center;">
+                <button class="btn btn-accent" onclick="window.location.href='#properties'">Ver Propiedades</button>
+            </div>
+        </div>
+    </section>
+
+    <main class="container" id="properties">
+        <div style="display:flex; justify-content:center; gap:15px; margin-bottom:30px; flex-wrap:wrap;">
+            <button class="btn btn-primary filter-btn active" onclick="app.filter('all')">Todos</button>
+            <button class="btn btn-primary filter-btn" onclick="app.filter('rent')">Alquiler Vacacional</button>
+            <button class="btn btn-primary filter-btn" onclick="app.filter('sale')">Venta Inmobiliaria</button>
+        </div>
+
+        <div class="properties-grid" id="properties-grid">
+            <!-- Se llena con JS -->
+        </div>
+    </main>
+
+    <nav class="mobile-nav">
+        <a href="#" class="nav-item active"><i class="fas fa-home"></i> Inicio</a>
+        <a href="#" class="nav-item"><i class="fas fa-heart"></i> Favoritos</a>
+        <a href="#" class="nav-item"><i class="fas fa-user"></i> Perfil</a>
+    </nav>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
