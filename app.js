@@ -198,12 +198,32 @@ if (document.getElementById('admin-panel')) {
         init: async () => {
             adminApp.loadDashboard();
             document.getElementById('property-form').addEventListener('submit', adminApp.saveProperty);
+            
+            // Listener para cerrar menú al cambiar de tamaño de ventana si estaba abierto
+            window.addEventListener('resize', () => {
+                if(window.innerWidth > 992) {
+                    document.querySelector('.admin-sidebar').classList.remove('open');
+                    document.querySelector('.sidebar-overlay').classList.remove('active');
+                }
+            });
         },
 
         switchView: (viewName, btnElement) => {
+            // ... código existente para ocultar/mostrar secciones ...
+            
             document.querySelectorAll('.admin-view').forEach(el => el.style.display = 'none');
             document.getElementById(`view-${viewName}`).style.display = 'block';
-            if(btnElement) { document.querySelectorAll('.admin-sidebar .nav-link').forEach(l => l.classList.remove('active')); btnElement.classList.add('active'); }
+            
+            if(btnElement) {
+                document.querySelectorAll('.admin-sidebar .nav-link').forEach(l => l.classList.remove('active'));
+                btnElement.classList.add('active');
+            }
+
+            // CERRAR MENÚ MÓVIL AUTOMÁTICAMENTE AL SELECCIONAR OPCIÓN
+            if(window.innerWidth <= 992) {
+                adminApp.toggleMenu();
+            }
+
             if (viewName === 'dashboard') adminApp.loadDashboard();
             if (viewName === 'properties') adminApp.renderProperties();
             if (viewName === 'messages') adminApp.renderMessages();
@@ -219,13 +239,22 @@ if (document.getElementById('admin-panel')) {
                     getDocs(query(collection(db, "clients")))
                 ]);
                 
+                // Calcular mensajes NO LEÍDOS
+                const messages = mSnap.docs.map(d => d.data());
+                const unreadCount = messages.filter(m => m.read === false).length;
+
                 document.getElementById('stat-props').innerText = pSnap.size;
-                document.getElementById('stat-msgs').innerText = mSnap.size;
+                document.getElementById('stat-msgs').innerText = unreadCount; // Ahora solo muestra no leídos
                 document.getElementById('stat-clients').innerText = cSnap.size;
                 
+                // Actualizar badge del sidebar también
                 const badge = document.getElementById('msg-badge');
-                if (mSnap.size > 0) { badge.style.display = 'inline-block'; badge.innerText = mSnap.size; } 
-                else { badge.style.display = 'none'; }
+                if (unreadCount > 0) {
+                    badge.style.display = 'inline-block';
+                    badge.innerText = unreadCount;
+                } else {
+                    badge.style.display = 'none';
+                }
             } catch (e) { console.error(e); }
         },
 
@@ -530,6 +559,14 @@ if (document.getElementById('admin-panel')) {
             try { await deleteDoc(doc(db, "clients", id)); adminApp.renderClients(); } catch(e) { console.error(e); }
         }
     };
+
+        // --- FUNCIONES DE UI ---
+        toggleMenu: () => {
+            const sidebar = document.querySelector('.admin-sidebar');
+            const overlay = document.querySelector('.sidebar-overlay');
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('active');
+        },
 
     window.adminApp = adminApp;
     document.addEventListener('DOMContentLoaded', adminApp.init);

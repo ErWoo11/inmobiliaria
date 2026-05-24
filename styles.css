@@ -265,3 +265,54 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
     background: #f8fafc; padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 0.9rem; color: #475569; 
     max-height: 100px; overflow-y: auto; border: 1px dashed #cbd5e1;
 }
+
+/* --- MENÚ HAMBURGUESA (MÓVIL) --- */
+.hamburger-btn {
+    display: none; /* Oculto en escritorio */
+    font-size: 1.5rem;
+    background: none;
+    border: none;
+    color: var(--text-main);
+    cursor: pointer;
+    margin-right: 15px;
+}
+
+/* Overlay (fondo oscuro al abrir menú en móvil) */
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: 70px; /* Debajo del header */
+    left: 0;
+    width: 100%;
+    height: calc(100vh - 70px);
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    backdrop-filter: blur(2px);
+}
+
+/* Responsive Logic */
+@media (max-width: 992px) {
+    .hamburger-btn { display: block; }
+
+    .admin-sidebar {
+        position: fixed; /* Fijo en móvil */
+        top: 70px;
+        left: 0;
+        height: calc(100vh - 70px);
+        width: 260px;
+        background: white;
+        z-index: 1100;
+        transform: translateX(-100%); /* Oculto a la izquierda por defecto */
+        transition: transform 0.3s ease-in-out;
+        box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        display: block !important; /* Forzar display block */
+        padding-top: 20px;
+    }
+
+    /* Clase para abrir el menú */
+    .admin-sidebar.open { transform: translateX(0); }
+    .sidebar-overlay.active { display: block; }
+
+    /* Ajustar contenido principal para que no se desplace */
+    .admin-main { margin-left: 0 !important; width: 100% !important; }
+}

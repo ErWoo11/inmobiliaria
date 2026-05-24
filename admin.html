@@ -11,7 +11,12 @@
 
     <header>
         <div class="container nav-content">
-            <a href="index.html" class="logo"><i class="fas fa-building-user"></i> Admin Panel</a>
+            <button class="hamburger-btn" onclick="adminApp.toggleMenu()">
+                <i class="fas fa-bars"></i>
+            </button>
+            
+            <a href="#" class="logo"><i class="fas fa-building-user"></i> Admin Panel</a>
+            
             <div style="display:flex; gap:10px;">
                 <button class="btn btn-outline" style="border:1px solid #ccc;" onclick="window.location.href='index.html'">
                     <i class="fas fa-globe"></i> Ver Web
@@ -41,6 +46,8 @@
                 </a>
             </nav>
         </aside>
+
+        <div class="sidebar-overlay" onclick="adminApp.toggleMenu()"></div>
 
         <!-- CONTENIDO PRINCIPAL -->
         <main class="admin-main">
