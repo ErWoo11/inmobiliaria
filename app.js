@@ -24,14 +24,28 @@ if (document.getElementById('properties')) {
         const delay = index * 100; 
         const badgeClass = prop.type === 'rent' ? 'badge-rent' : 'badge-sale';
         const badgeText = prop.type === 'rent' ? 'Alquiler' : 'Venta';
-        // Mostrar solo la primera imagen en la tarjeta
         const mainImg = Array.isArray(prop.img) && prop.img.length > 0 ? prop.img[0] : (prop.img || 'https://picsum.photos/400/300');
         const price = prop.period ? `${formatPrice(prop.price)} /${prop.period}` : formatPrice(prop.price);
+
+        // --- LÓGICA DE ESTADO (RESERVADO/VENDIDO) ---
+        let statusOverlay = '';
+        let imgClass = 'card-img';
+        
+        if (prop.status === 'reserved' || prop.status === 'sold') {
+            imgClass += ' img-grayscale'; // Añadir filtro blanco y negro
+            
+            const statusText = prop.status === 'reserved' ? 'RESERVADO' : 'VENDIDO';
+            const colorClass = prop.status === 'reserved' ? 'bg-reserved' : 'bg-sold';
+            
+            statusOverlay = `<div class="status-overlay ${colorClass}">${statusText}</div>`;
+        }
 
         return `
             <div class="card" style="animation-delay: ${delay}ms" onclick="app.showDetail('${prop.id}')">
                 <div style="overflow: hidden; position: relative;">
-                    <img src="${mainImg}" class="card-img" alt="${prop.title}" loading="lazy">
+                    <img src="${mainImg}" class="${imgClass}" alt="${prop.title}" loading="lazy">
+                    ${statusOverlay} <!-- Inyectar el letrerero aquí -->
+                    
                     ${Array.isArray(prop.img) && prop.img.length > 1 ? `<span style="position:absolute; bottom:10px; right:10px; background:rgba(0,0,0,0.6); color:white; padding:2px 6px; border-radius:10px; font-size:0.7rem;"><i class="fas fa-images"></i> +${prop.img.length-1}</span>` : ''}
                     <span class="badge ${badgeClass}" style="position: absolute; top: 15px; left: 15px; z-index: 10;">${badgeText}</span>
                 </div>
@@ -283,12 +297,35 @@ if (document.getElementById('properties')) {
                     let html = '';
                     snapshot.forEach(docSnap => {
                         const p = docSnap.data();
+                        
+                        // Mostrar la primera imagen
                         const imgDisplay = Array.isArray(p.img) ? p.img[0] : p.img;
+
+                        // --- LÓGICA PARA MOSTRAR EL ESTADO (NUEVO) ---
+                        const status = p.status || 'available'; // Por defecto 'available'
+                        let statusLabel = 'Disponible';
+                        let statusClass = 'available';
+
+                        if (status === 'reserved') {
+                            statusLabel = 'Reservado';
+                            statusClass = 'reserved';
+                        } else if (status === 'sold') {
+                            statusLabel = 'Vendido';
+                            statusClass = 'sold';
+                        }
+                        // -------------------------------------------------
+
                         html += `
                             <div class="card" style="padding:15px; display:flex; flex-direction:column; justify-content:space-between;">
                                 <img src="${imgDisplay}" style="height:150px; width:100%; object-fit:cover; border-radius:8px; margin-bottom:10px;">
                                 <div>
                                     <h4 style="margin-bottom:5px;">${p.title}</h4>
+                                    
+                                    <!-- AQUÍ SE MUESTRA EL BADGE DE COLOR -->
+                                    <div style="margin-bottom:8px;">
+                                        <span class="status-badge ${statusClass}">${statusLabel}</span>
+                                    </div>
+
                                     <small style="color:var(--primary); font-weight:bold;">${formatPrice(p.price)}</small>
                                     <div style="margin-top:10px; display:flex; gap:10px;">
                                         <button class="btn btn-primary" style="flex:1; padding:5px; font-size:0.8rem;" onclick="adminApp.editProperty('${docSnap.id}')"><i class="fas fa-edit"></i> Editar</button>
@@ -302,68 +339,73 @@ if (document.getElementById('properties')) {
                 } catch (error) { console.error(error); }
             },
 
-            saveProperty: async (e) => {
-                e.preventDefault();
-                const editId = document.getElementById('edit-id').value;
-                const btn = document.getElementById('btn-save');
-                btn.disabled = true;
-                btn.innerText = editId ? 'Actualizando...' : 'Guardando...';
+        saveProperty: async (e) => {
+            e.preventDefault();
+            const editId = document.getElementById('edit-id').value;
+            const btn = document.getElementById('btn-save');
+            btn.disabled = true;
+            btn.innerText = editId ? 'Actualizando...' : 'Guardando...';
 
-                const rawImages = document.getElementById('img').value;
-                const imagesArray = rawImages.split('\n').map(url => url.trim()).filter(url => url !== '');
+            const rawImages = document.getElementById('img').value;
+            const imagesArray = rawImages.split('\n').map(url => url.trim()).filter(url => url !== '');
 
-                const formData = {
-                    title: document.getElementById('title').value,
-                    price: Number(document.getElementById('price').value),
-                    period: document.getElementById('period').value,
-                    type: document.getElementById('type').value,
-                    category: document.getElementById('category').value,
-                    location: document.getElementById('location').value,
-                    beds: Number(document.getElementById('beds').value),
-                    baths: Number(document.getElementById('baths').value),
-                    img: imagesArray,
-                    desc: document.getElementById('desc').value,
-                };
+            const formData = {
+                title: document.getElementById('title').value,
+                price: Number(document.getElementById('price').value),
+                period: document.getElementById('period').value,
+                type: document.getElementById('type').value,
+                category: document.getElementById('category').value,
+                location: document.getElementById('location').value,
+                beds: Number(document.getElementById('beds').value),
+                baths: Number(document.getElementById('baths').value),
+                img: imagesArray,
+                desc: document.getElementById('desc').value,
+                status: document.getElementById('status').value, // <--- AÑADIR ESTO
+            };
 
-                try {
-                    if (editId) {
-                        await updateDoc(doc(db, "properties", editId), formData);
-                        showToast('Actualizado');
-                    } else {
-                        await addDoc(collection(db, "properties"), { ...formData, createdAt: new Date() });
-                        showToast('Creado');
-                    }
-                    adminApp.resetForm();
-                    adminApp.renderProperties();
-                } catch (error) { console.error(error); showToast('Error', 'error'); }
-                finally { btn.disabled = false; btn.innerText = editId ? 'Actualizar' : 'Publicar'; }
-            },
+            try {
+                if (editId) {
+                    await updateDoc(doc(db, "properties", editId), formData);
+                    showToast('Actualizado');
+                } else {
+                    await addDoc(collection(db, "properties"), { ...formData, createdAt: new Date() });
+                    showToast('Creado');
+                }
+                adminApp.resetForm();
+                adminApp.renderProperties();
+            } catch (error) { console.error(error); showToast('Error', 'error'); }
+            finally { btn.disabled = false; btn.innerText = editId ? 'Actualizar' : 'Publicar'; }
+        },
 
-            editProperty: async (id) => {
-                try {
-                    const docSnap = await getDocs(query(collection(db, "properties")));
-                    let prop = null;
-                    docSnap.forEach(d => { if(d.id === id) prop = {id: d.id, ...d.data()}; });
-                    if(prop) {
-                        document.getElementById('edit-id').value = prop.id;
-                        document.getElementById('title').value = prop.title;
-                        document.getElementById('price').value = prop.price;
-                        document.getElementById('period').value = prop.period || "";
-                        document.getElementById('type').value = prop.type;
-                        document.getElementById('category').value = prop.category;
-                        document.getElementById('location').value = prop.location;
-                        document.getElementById('beds').value = prop.beds;
-                        document.getElementById('baths').value = prop.baths;
-                        const imgText = Array.isArray(prop.img) ? prop.img.join('\n') : prop.img;
-                        document.getElementById('img').value = imgText;
-                        document.getElementById('desc').value = prop.desc || "";
-                        document.getElementById('form-title').innerHTML = '<i class="fas fa-edit"></i> Editar Propiedad';
-                        document.getElementById('btn-save').innerText = 'Actualizar Propiedad';
-                        document.getElementById('btn-cancel').style.display = 'inline-block';
-                        document.querySelector('.admin-main').scrollTo({ top: 0, behavior: 'smooth' });
-                    }
-                } catch(e) { console.error(e); }
-            },
+        editProperty: async (id) => {
+            try {
+                const docSnap = await getDocs(query(collection(db, "properties")));
+                let prop = null;
+                docSnap.forEach(d => { if(d.id === id) prop = {id: d.id, ...d.data()}; });
+                if(prop) {
+                    document.getElementById('edit-id').value = prop.id;
+                    document.getElementById('title').value = prop.title;
+                    document.getElementById('price').value = prop.price;
+                    document.getElementById('period').value = prop.period || "";
+                    document.getElementById('type').value = prop.type;
+                    document.getElementById('category').value = prop.category;
+                    document.getElementById('location').value = prop.location;
+                    document.getElementById('beds').value = prop.beds;
+                    document.getElementById('baths').value = prop.baths;
+                    
+                    // Cargar estado (por defecto available si es null)
+                    document.getElementById('status').value = prop.status || 'available'; // <--- AÑADIR ESTO
+
+                    const imgText = Array.isArray(prop.img) ? prop.img.join('\n') : prop.img;
+                    document.getElementById('img').value = imgText;
+                    document.getElementById('desc').value = prop.desc || "";
+                    document.getElementById('form-title').innerHTML = '<i class="fas fa-edit"></i> Editar Propiedad';
+                    document.getElementById('btn-save').innerText = 'Actualizar Propiedad';
+                    document.getElementById('btn-cancel').style.display = 'inline-block';
+                    document.querySelector('.admin-main').scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            } catch(e) { console.error(e); }
+        },
 
             deleteProperty: async (id) => {
                 if(!confirm('¿Eliminar propiedad?')) return;
