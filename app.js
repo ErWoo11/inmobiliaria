@@ -1,6 +1,6 @@
 // app.js
 import { db } from './firebase-config.js';
-import { collection, getDocs, getDoc, addDoc, deleteDoc, doc, updateDoc, query, orderBy, where } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { collection, getDocs, getDoc, addDoc, deleteDoc, doc, updateDoc, query, orderBy, where, onSnapshot } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 // --- UTILIDADES GLOBALES ---
 const showToast = (message, type = 'success') => {
@@ -22,7 +22,7 @@ const formatPrice = (price) => {
 };
 
 // ==========================================
-// LÓGICA INDEX (CLIENTE)
+// LÓGICA INDEX (CLIENTE) - ACTUALIZACIÓN EN TIEMPO REAL
 // ==========================================
 if (document.getElementById('properties')) {
     const state = { 
@@ -30,9 +30,11 @@ if (document.getElementById('properties')) {
         filter: 'all', 
         currentImages: [], 
         currentSlide: 0,
-        currentContactRef: null
+        currentContactRef: null,
+        unsubProperties: null // Para detener el listener
     };
 
+    // Función auxiliar para crear el HTML de una tarjeta
     const createCard = (prop, index) => {
         const delay = index * 100; 
         const badgeClass = prop.type === 'rent' ? 'badge-rent' : 'badge-sale';
@@ -75,35 +77,186 @@ if (document.getElementById('properties')) {
         `;
     };
 
-    const loadProperties = async (filterType = 'all') => {
+    // --- FUNCIÓN DE RENDERIZADO (Actualiza el HTML) ---
+    const renderGrid = () => {
         const grid = document.getElementById('properties-grid');
-        grid.innerHTML = '<div style="text-align:center; grid-column:1/-1; padding:40px;"><i class="fas fa-circle-notch fa-spin fa-2x" style="color:var(--primary)"></i></div>';
-        try {
-            const q = query(collection(db, "properties"), orderBy("createdAt", "desc"));
-            const querySnapshot = await getDocs(q);
-            state.properties = []; 
-            let html = '';
-            let counter = 0;
-            querySnapshot.forEach((doc) => {
-                const data = { id: doc.id, ...doc.data() };
-                state.properties.push(data);
-                if (filterType === 'all' || data.type === filterType) {
+        
+        let html = '';
+        let counter = 0;
+        
+        state.properties.forEach((data) => {
+            // 1. Filtro Principal (Rent/Sale/All)
+            if (state.filter === 'all' || data.type === state.filter) {
+                
+                // 2. Filtros Secundarios (Provincia / Ciudad)
+                let matchSecondary = true;
+                const locLower = (data.location || '').toLowerCase();
+                const provLower = app.secondaryFilters.province.toLowerCase();
+                const cityLower = app.secondaryFilters.city.toLowerCase();
+
+                if (provLower && !locLower.includes(provLower)) matchSecondary = false;
+                if (cityLower && !locLower.includes(cityLower)) matchSecondary = false;
+
+                if (matchSecondary) {
                     html += createCard(data, counter);
                     counter++;
                 }
+            }
+        });
+
+        grid.innerHTML = html || '<p style="text-align:center; grid-column:1/-1; color:#888;">No hay propiedades con estos filtros.</p>';
+    };
+
+    // --- FUNCIÓN DE ESCUCHA EN TIEMPO REAL (onSnapshot) ---
+    const startRealtimeListener = () => {
+        const q = query(collection(db, "properties"), orderBy("createdAt", "desc"));
+        
+        // Si ya existe un listener, lo eliminamos para evitar duplicados
+        if (state.unsubProperties) state.unsubProperties();
+
+        // Iniciar nuevo listener
+        state.unsubProperties = onSnapshot(q, (querySnapshot) => {
+            state.properties = []; 
+            querySnapshot.forEach((doc) => {
+                state.properties.push({ id: doc.id, ...doc.data() });
             });
-            grid.innerHTML = html || '<p style="text-align:center; grid-column:1/-1; color:#888;">No hay propiedades.</p>';
-        } catch (error) { console.error(error); grid.innerHTML = '<p style="text-align:center; color:red;">Error de conexión.</p>'; }
+            
+            // Cada vez que haya cambios en la BD, se ejecuta esto:
+            console.log("Actualización recibida de Firebase");
+            renderGrid();
+        }, (error) => {
+            console.error("Error en tiempo real:", error);
+            document.getElementById('properties-grid').innerHTML = '<p style="text-align:center; color:red;">Error de conexión en tiempo real.</p>';
+        });
     };
 
     window.app = {
-        init: () => loadProperties('all'),
+        // Estado de los filtros secundarios
+        secondaryFilters: {
+            province: '',
+            city: ''
+        },
+
+        init: () => {
+            // Iniciar escuchando cambios en tiempo real
+            startRealtimeListener();
+        },
+
         filter: (type) => {
+            state.filter = type;
             document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
             if(event && event.target) event.target.classList.add('active');
-            loadProperties(type);
+            
+            // Reiniciar filtros secundarios al cambiar el filtro principal
+            app.secondaryFilters.province = '';
+            app.secondaryFilters.city = '';
+            
+            // 1. Generar los filtros dinámicos basados en los resultados
+            app.generateDynamicFilters();
+            
+            // 2. Renderizar el grid
+            renderGrid();
         },
         
+        // NUEVA FUNCIÓN: Generar Selects de Provincia y Población
+        generateDynamicFilters: () => {
+            const container = document.getElementById('dynamic-filters');
+            container.innerHTML = ''; // Limpiar anteriores
+
+            // Filtrar propiedades actuales según el filtro principal (Rent/Sale)
+            const currentProps = state.properties.filter(p => 
+                state.filter === 'all' || p.type === state.filter
+            );
+
+            if (currentProps.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+
+            // Extraer Provincias y Poblaciones únicas
+            const provincesSet = new Set();
+            const citiesSet = new Set(); // Nota: Aquí guardaremos todas las ciudades para filtrar globalmente o podríamos anidarlo
+
+            // Lógica simple: Separar por coma si existe
+            currentProps.forEach(p => {
+                if(!p.location) return;
+                const parts = p.location.split(',');
+                
+                // Si hay coma (ej: "Marbella, Málaga")
+                if (parts.length > 1) {
+                    const city = parts[0].trim();
+                    const province = parts[1].trim();
+                    provincesSet.add(province);
+                    citiesSet.add(city);
+                } else {
+                    // Si solo hay una parte (ej: "Madrid"), asumimos que es la provincia para el filtro
+                    provincesSet.add(parts[0].trim());
+                }
+            });
+
+            // Ordenar alfabéticamente
+            const provinces = Array.from(provincesSet).sort();
+            const cities = Array.from(citiesSet).sort();
+
+            if (provinces.length === 0 && cities.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+
+            container.style.display = 'flex';
+
+            // --- CONSTRUIR HTML ---
+
+            // 1. Select Provincia
+            if (provinces.length > 0) {
+                const provSelect = document.createElement('select');
+                provSelect.className = 'form-input';
+                provSelect.style.width = 'auto';
+                provSelect.style.minWidth = '150px';
+                provSelect.innerHTML = `<option value="">Provincia</option>` + 
+                    provinces.map(p => `<option value="${p}">${p}</option>`).join('');
+                
+                provSelect.addEventListener('change', (e) => {
+                    app.secondaryFilters.province = e.target.value;
+                    app.secondaryFilters.city = ''; // Resetear ciudad al cambiar provincia
+                    renderGrid();
+                });
+                container.appendChild(provSelect);
+            }
+
+            // 2. Select Población (Ciudad)
+            // Nota: Para hacerlo perfecto, al elegir provincia solo deberían salir las ciudades de esa provincia.
+            // Para mantenerlo simple en este ejemplo, mostramos todas las ciudades encontradas en los resultados.
+            if (cities.length > 0) {
+                const citySelect = document.createElement('select');
+                citySelect.className = 'form-input';
+                citySelect.style.width = 'auto';
+                citySelect.style.minWidth = '150px';
+                citySelect.innerHTML = `<option value="">Población</option>` + 
+                    cities.map(c => `<option value="${c}">${c}</option>`).join('');
+
+                citySelect.addEventListener('change', (e) => {
+                    app.secondaryFilters.city = e.target.value;
+                    renderGrid();
+                });
+                container.appendChild(citySelect);
+            }
+
+            // 3. Botón Limpiar
+            const clearBtn = document.createElement('button');
+            clearBtn.className = 'btn btn-outline';
+            clearBtn.innerText = 'Limpiar Filtros';
+            clearBtn.onclick = () => {
+                app.secondaryFilters.province = '';
+                app.secondaryFilters.city = '';
+                // Resetear selects visuales
+                provSelect.value = "";
+                citySelect.value = "";
+                renderGrid();
+            };
+            container.appendChild(clearBtn);
+        },
+
         showDetail: (id) => {
             const property = state.properties.find(p => p.id === id);
             if (!property) return;
@@ -227,10 +380,8 @@ if (document.getElementById('admin-panel')) {
         data: { properties: [], messages: [], clients: [] },
 
         init: async () => {
-            // 1. VERIFICAR SESIÓN AL INICIAR
             adminApp.checkSession();
 
-            // 2. SI HAY SESIÓN, CARGAR LISTENERS Y DASHBOARD
             if (sessionStorage.getItem('adminSession')) {
                 adminApp.loadDashboard();
                 document.getElementById('property-form-modal').addEventListener('submit', adminApp.saveProperty);
@@ -255,13 +406,11 @@ if (document.getElementById('admin-panel')) {
             const userDisplay = document.getElementById('user-display');
 
             if (session) {
-                // SESIÓN ACTIVA
                 loginView.style.display = 'none';
                 adminPanel.style.display = 'block';
                 logoutBtn.style.display = 'inline-flex';
                 userDisplay.innerText = session;
             } else {
-                // SIN SESIÓN
                 loginView.style.display = 'flex';
                 adminPanel.style.display = 'none';
                 logoutBtn.style.display = 'none';
@@ -287,9 +436,7 @@ if (document.getElementById('admin-panel')) {
                     const adminDoc = querySnapshot.docs[0];
                     const adminData = adminDoc.data();
 
-                    // COMPROBAR CONTRASEÑA
                     if (adminData.password === pass) {
-                        // GUARDAR SESIÓN
                         sessionStorage.setItem('adminSession', email);
                         showToast('Acceso concedido', 'success');
                         adminApp.checkSession();
@@ -310,7 +457,7 @@ if (document.getElementById('admin-panel')) {
         logout: () => {
             if(confirm('¿Cerrar sesión?')) {
                 sessionStorage.removeItem('adminSession');
-                location.reload(); // Recargar página para volver a mostrar login
+                location.reload();
             }
         },
 
