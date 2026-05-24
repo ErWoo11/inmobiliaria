@@ -336,8 +336,15 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
     letter-spacing: 2px;
 }
 
-.bg-reserved { background: rgba(59, 130, 246, 0.85); } /* Azul */
-.bg-sold { background: rgba(239, 68, 68, 0.85); } /* Rojo */
+.bg-reserved { 
+    background: rgba(59, 130, 246, 0.45); /* Azul al 45% de opacidad */
+    backdrop-filter: blur(2px); /* Efecto cristal esmerilado */
+}
+
+.bg-sold { 
+    background: rgba(239, 68, 68, 0.45); /* Rojo al 45% de opacidad */
+    backdrop-filter: blur(2px); /* Efecto cristal esmerilado */
+}
 
 /* --- BADGES DE ESTADO EN ADMIN --- */
 .status-badge {
