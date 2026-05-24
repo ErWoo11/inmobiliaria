@@ -30,7 +30,7 @@ if (document.getElementById('properties')) {
         filter: 'all', 
         currentImages: [], 
         currentSlide: 0,
-        currentContactRef: null // Para guardar la ref al contactar
+        currentContactRef: null
     };
 
     const createCard = (prop, index) => {
@@ -40,7 +40,6 @@ if (document.getElementById('properties')) {
         const mainImg = Array.isArray(prop.img) && prop.img.length > 0 ? prop.img[0] : (prop.img || 'https://picsum.photos/400/300');
         const price = prop.period ? `${formatPrice(prop.price)} /${prop.period}` : formatPrice(prop.price);
         
-        // Badge de Referencia
         const refDisplay = prop.ref ? `<span class="ref-badge">${prop.ref}</span>` : '';
 
         // --- LÓGICA DE ESTADO (RESERVADO/VENDIDO) ---
@@ -48,7 +47,7 @@ if (document.getElementById('properties')) {
         let imgClass = 'card-img';
         
         if (prop.status === 'reserved' || prop.status === 'sold') {
-            imgClass += ' img-grayscale'; // Efecto blanco y negro
+            imgClass += ' img-grayscale'; 
             const statusText = prop.status === 'reserved' ? 'RESERVADO' : 'VENDIDO';
             const colorClass = prop.status === 'reserved' ? 'bg-reserved' : 'bg-sold';
             statusOverlay = `<div class="status-overlay ${colorClass}">${statusText}</div>`;
@@ -109,14 +108,10 @@ if (document.getElementById('properties')) {
             const property = state.properties.find(p => p.id === id);
             if (!property) return;
 
-            // Preparar imágenes (Array)
             state.currentImages = Array.isArray(property.img) ? property.img : [property.img || 'https://picsum.photos/400/300'];
             state.currentSlide = 0;
-
-            // Renderizar Slider
             app.renderSlider();
 
-            // Datos Texto
             const priceText = property.period ? `${formatPrice(property.price)} /${property.period}` : formatPrice(property.price);
             document.getElementById('modal-title').innerText = property.title;
             document.getElementById('modal-price').innerText = priceText;
@@ -125,7 +120,6 @@ if (document.getElementById('properties')) {
             document.getElementById('modal-baths').innerText = property.baths;
             document.getElementById('modal-desc').innerText = property.desc || "Sin descripción.";
             
-            // Badge Tipo
             const badgeEl = document.getElementById('modal-badge');
             badgeEl.className = property.type === 'rent' ? 'badge badge-rent' : 'badge badge-sale';
             badgeEl.innerText = property.type === 'rent' ? 'Alquiler Vacacional' : 'En Venta';
@@ -168,56 +162,6 @@ if (document.getElementById('properties')) {
             dots[state.currentSlide].classList.add('active');
         },
 
-        // --- LOGIN ---
-        openLoginModal: () => {
-            document.getElementById('login-modal').classList.add('open');
-            document.body.style.overflow = 'hidden';
-        },
-
-        closeLoginModal: () => {
-            document.getElementById('login-modal').classList.remove('open');
-            document.body.style.overflow = '';
-        },
-
-        loginAdmin: async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('login-email').value;
-            const pass = document.getElementById('login-pass').value;
-            const btn = e.target.querySelector('button');
-            
-            btn.disabled = true;
-            btn.innerText = 'Verificando...';
-
-            try {
-                // Buscar admin en la colección 'admins'
-                const q = query(collection(db, "admins"), where("email", "==", email));
-                const querySnapshot = await getDocs(q);
-
-                if (querySnapshot.empty) {
-                    showToast('Credenciales incorrectas', 'error');
-                } else {
-                    const adminDoc = querySnapshot.docs[0];
-                    const adminData = adminDoc.data();
-
-                    // COMPROBAR CONTRASEÑA (En producción, usa Firebase Auth)
-                    if (adminData.password === pass) {
-                        showToast('Acceso concedido', 'success');
-                        setTimeout(() => {
-                            window.location.href = 'admin.html';
-                        }, 1000);
-                    } else {
-                        showToast('Contraseña incorrecta', 'error');
-                    }
-                }
-            } catch (error) {
-                console.error(error);
-                showToast('Error de conexión', 'error');
-            } finally {
-                btn.disabled = false;
-                btn.innerText = 'Entrar';
-            }
-        },
-
         goToSlide: (index) => {
             const slides = document.querySelectorAll('.modal-slide');
             const dots = document.querySelectorAll('.dot');
@@ -236,11 +180,8 @@ if (document.getElementById('properties')) {
 
         contactAgent: () => {
             const title = document.getElementById('modal-title').innerText;
-            // Buscar la propiedad actual para obtener la referencia
             const prop = state.properties.find(p => p.title === title);
             const ref = prop ? (prop.ref || '') : '';
-            
-            // Guardar ref temporalmente
             app.currentContactRef = ref;
 
             document.getElementById('contact-prop-title').innerText = `${title} ${ref ? `(${ref})` : ''}`;
@@ -256,7 +197,7 @@ if (document.getElementById('properties')) {
             
             const msgData = {
                 propName: document.getElementById('contact-prop-title').innerText,
-                propRef: app.currentContactRef, // Enviar referencia
+                propRef: app.currentContactRef,
                 clientName: document.getElementById('contact-name').value,
                 clientEmail: document.getElementById('contact-email').value,
                 clientPhone: document.getElementById('contact-phone').value,
@@ -286,9 +227,14 @@ if (document.getElementById('admin-panel')) {
         data: { properties: [], messages: [], clients: [] },
 
         init: async () => {
-            adminApp.loadDashboard();
-            // Listener para el formulario dentro del MODAL
-            document.getElementById('property-form-modal').addEventListener('submit', adminApp.saveProperty);
+            // 1. VERIFICAR SESIÓN AL INICIAR
+            adminApp.checkSession();
+
+            // 2. SI HAY SESIÓN, CARGAR LISTENERS Y DASHBOARD
+            if (sessionStorage.getItem('adminSession')) {
+                adminApp.loadDashboard();
+                document.getElementById('property-form-modal').addEventListener('submit', adminApp.saveProperty);
+            }
             
             window.addEventListener('resize', () => {
                 if(window.innerWidth > 992) {
@@ -298,6 +244,74 @@ if (document.getElementById('admin-panel')) {
                     if(overlay) overlay.classList.remove('active');
                 }
             });
+        },
+
+        // --- GESTIÓN DE SESIÓN ---
+        checkSession: () => {
+            const session = sessionStorage.getItem('adminSession');
+            const loginView = document.getElementById('admin-login-view');
+            const adminPanel = document.getElementById('admin-panel');
+            const logoutBtn = document.getElementById('btn-logout');
+            const userDisplay = document.getElementById('user-display');
+
+            if (session) {
+                // SESIÓN ACTIVA
+                loginView.style.display = 'none';
+                adminPanel.style.display = 'block';
+                logoutBtn.style.display = 'inline-flex';
+                userDisplay.innerText = session;
+            } else {
+                // SIN SESIÓN
+                loginView.style.display = 'flex';
+                adminPanel.style.display = 'none';
+                logoutBtn.style.display = 'none';
+            }
+        },
+
+        login: async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('login-email').value;
+            const pass = document.getElementById('login-pass').value;
+            const btn = e.target.querySelector('button');
+            
+            btn.disabled = true;
+            btn.innerText = 'Verificando...';
+
+            try {
+                const q = query(collection(db, "admins"), where("email", "==", email));
+                const querySnapshot = await getDocs(q);
+
+                if (querySnapshot.empty) {
+                    showToast('Credenciales incorrectas', 'error');
+                } else {
+                    const adminDoc = querySnapshot.docs[0];
+                    const adminData = adminDoc.data();
+
+                    // COMPROBAR CONTRASEÑA
+                    if (adminData.password === pass) {
+                        // GUARDAR SESIÓN
+                        sessionStorage.setItem('adminSession', email);
+                        showToast('Acceso concedido', 'success');
+                        adminApp.checkSession();
+                        adminApp.loadDashboard();
+                    } else {
+                        showToast('Contraseña incorrecta', 'error');
+                    }
+                }
+            } catch (error) {
+                console.error(error);
+                showToast('Error de conexión', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Entrar';
+            }
+        },
+
+        logout: () => {
+            if(confirm('¿Cerrar sesión?')) {
+                sessionStorage.removeItem('adminSession');
+                location.reload(); // Recargar página para volver a mostrar login
+            }
         },
 
         // --- NAVEGACIÓN Y UI ---
@@ -340,15 +354,13 @@ if (document.getElementById('admin-panel')) {
                 const messages = mSnap.docs.map(d => d.data());
                 const unreadCount = messages.filter(m => m.read === false).length;
 
-                // Contar Inmuebles por Tipo
                 const rentalsCount = props.filter(p => p.type === 'rent').length;
                 const salesCount = props.filter(p => p.type === 'sale').length;
 
-                document.getElementById('stat-props').innerText = props.length; // Inmuebles Totales
+                document.getElementById('stat-props').innerText = props.length;
                 document.getElementById('stat-msgs').innerText = unreadCount; 
                 document.getElementById('stat-clients').innerText = cSnap.size;
                 
-                // Actualizar nuevos contadores
                 document.getElementById('stat-rentals').innerText = rentalsCount;
                 document.getElementById('stat-sales').innerText = salesCount;
                 
@@ -362,7 +374,7 @@ if (document.getElementById('admin-panel')) {
             } catch (e) { console.error(e); }
         },
 
-        // --- INMUEBLES (MODAL + FILTROS + REF) ---
+        // --- INMUEBLES ---
         generateRef: async () => {
             const year = new Date().getFullYear();
             const random = Math.floor(1000 + Math.random() * 9000);
@@ -379,7 +391,6 @@ if (document.getElementById('admin-panel')) {
             document.getElementById('btn-save-modal').innerText = "Guardar Inmueble";
 
             if (id) {
-                // MODO EDICIÓN
                 try {
                     const docSnap = await getDocs(query(collection(db, "properties")));
                     let prop = null;
@@ -407,7 +418,6 @@ if (document.getElementById('admin-panel')) {
                     }
                 } catch(e) { console.error(e); }
             } else {
-                // MODO CREACIÓN
                 const newRef = await adminApp.generateRef();
                 document.getElementById('ref-number').value = newRef;
                 document.getElementById('status').value = 'available';
@@ -580,7 +590,6 @@ if (document.getElementById('admin-panel')) {
                                 <h4>${m.clientName} <small>(${m.clientEmail})</small> ${!isRead ? '<span style="color:var(--accent); font-size:0.7rem;">NUEVO</span>' : ''}</h4>
                                 <p style="margin:5px 0; color:#444;">${m.message}</p>
                                 <small><i class="fas fa-phone"></i> ${m.clientPhone} • ${date}</small>
-                                <!-- CORRECCIÓN AQUÍ: Añadido valor verdadero al ternario -->
                                 <div style="font-size:0.8rem; color:var(--primary); margin-top:2px;">Interés: ${m.propName} ${m.propRef ? `(${m.propRef})` : ''}</div>
                             </div>
                             <div style="text-align:right;">
@@ -632,7 +641,6 @@ if (document.getElementById('admin-panel')) {
                     name: msg.clientName,
                     email: msg.clientEmail,
                     phone: msg.clientPhone,
-                    // CORRECCIÓN AQUÍ: Añadido valor verdadero al ternario
                     notes: `Interés inicial en: ${msg.propName} ${msg.propRef ? `(${msg.propRef})` : ''}. Mensaje: "${msg.message}"`,
                     createdAt: new Date()
                 });
