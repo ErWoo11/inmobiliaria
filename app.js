@@ -628,14 +628,13 @@ if (document.getElementById('admin-panel')) {
                 try {
                     const docSnap = await getDocs(query(collection(db, "properties")));
                     let prop = null;
-                    // Buscamos el documento correcto
                     docSnap.forEach(d => { if(d.id === id) prop = {id: d.id, ...d.data()}; });
                     
                     if(prop) {
-                        // --- CORRECCIÓN AQUÍ: Usar 'prop' en lugar de 'p' ---
+                        // --- CORRECCIÓN: Usar 'prop' en lugar de 'p' ---
                         const isVisible = prop.visible !== false; 
                         document.getElementById('visible').checked = isVisible;
-                        // -------------------------------------------------
+                        // ---------------------------------------------
 
                         document.getElementById('edit-id').value = prop.id;
                         document.getElementById('ref-number').value = prop.ref || "N/A";
@@ -646,13 +645,13 @@ if (document.getElementById('admin-panel')) {
                         document.getElementById('status').value = prop.status || 'available';
                         document.getElementById('category').value = prop.category;
                         
-                        // Lógica de migración y carga de datos de Ubicación
+                        // LÓGICA DE MIGRACIÓN Y CARGA DE DATOS
                         if (prop.province && prop.city) {
                             // Datos nuevos (separados)
                             document.getElementById('province').value = prop.province;
                             document.getElementById('city').value = prop.city;
                         } else if (prop.location) {
-                            // Datos antiguos (campo único "Ubicación") - Migración automática
+                            // Datos antiguos (campo único "Ubicación")
                             const parts = prop.location.split(',');
                             if (parts.length > 1) {
                                 document.getElementById('city').value = parts[0].trim();
@@ -674,7 +673,6 @@ if (document.getElementById('admin-panel')) {
                     }
                 } catch(e) { console.error(e); }
             } else {
-                // Modo Creación
                 const newRef = await adminApp.generateRef();
                 document.getElementById('ref-number').value = newRef;
                 document.getElementById('status').value = 'available';
