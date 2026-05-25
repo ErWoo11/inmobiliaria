@@ -708,6 +708,7 @@ if (document.getElementById('admin-panel')) {
                 const fType = document.getElementById('filter-type').value;
                 const fCategory = document.getElementById('filter-category').value;
                 const fDate = document.getElementById('filter-date').value;
+                const fVisible = document.getElementById('filter-visible') ? document.getElementById('filter-visible').value : '';
 
                 const q = query(collection(db, "properties"), orderBy("createdAt", "desc"));
                 const snapshot = await getDocs(q);
@@ -723,6 +724,8 @@ if (document.getElementById('admin-panel')) {
                     if (fStatus && p.status !== fStatus) match = false;
                     if (fType && p.type !== fType) match = false;
                     if (fCategory && p.category !== fCategory) match = false;
+                    if (fVisible === 'false' && p.visible !== false) match = false;
+                    if (fVisible === 'true' && p.visible === false) match = false;
                     
                     if (fDate && p.createdAt) {
                         const propDate = new Date(p.createdAt.seconds * 1000);
@@ -739,6 +742,14 @@ if (document.getElementById('admin-panel')) {
                         if (status === 'reserved') { statusLabel = 'Reservado'; statusClass = 'reserved'; }
                         else if (status === 'sold') { statusLabel = 'Vendido'; statusClass = 'sold'; }
 
+                        // Lógica para determinar estado de visibilidad
+                        const isVisible = p.visible !== false;
+                        const visibilityBtnClass = isVisible ? 'btn-warning' : 'btn-success';
+                        const visibilityIcon = isVisible ? 'fa-eye-slash' : 'fa-eye';
+                        const visibilityText = isVisible ? 'Ocultar' : 'Mostrar';
+                        const visibilityTitle = isVisible ? 'Ocultar de la web' : 'Mostrar en la web';
+
+                        // Generar HTML de la tarjeta
                         html += `
                             <div class="card" style="padding:15px; display:flex; flex-direction:column; justify-content:space-between;">
                                 <div style="position:relative;">
@@ -746,31 +757,21 @@ if (document.getElementById('admin-panel')) {
                                     <span style="position:absolute; top:5px; left:5px; background:rgba(0,0,0,0.7); color:white; padding:2px 6px; font-size:0.7rem; border-radius:4px;">${p.ref || 'Sin Ref'}</span>
                                 </div>
                                 <div>
-                                    <h4 style="margin-bottom:5px;">${p.title}</h4>
+                                    <h4 style="margin-bottom:5px; font-size:1rem; line-height:1.2;">${p.title}</h4>
                                     <div style="margin-bottom:8px;"><span class="status-badge ${statusClass}">${statusLabel}</span></div>
-                                    <div style="margin-bottom:8px;">
-                                        <!-- Mostrar Ciudad, Provincia -->
-                                        <small style="color:#666;">
-                                            <i class="fas fa-map-marker-alt"></i> 
-                                            ${p.city ? p.city + ', ' : ''} ${p.province || (p.location || 'Sin ubicación')}
-                                        </small>
-                                    </div>
-                                    <small style="color:var(--primary); font-weight:bold;">${formatPrice(p.price)}</small>
-                                    <div style="margin-top:10px; display:flex; gap:10px;">
-                                        <!-- Lógica para saber si está visible (por defecto true si el campo no existe) -->
-                                        ${(() => {
-                                            const isVisible = p.visible !== false; 
-                                            if (isVisible) {
-                                                return `<button class="btn btn-warning" style="padding:5px 10px; font-size:0.8rem;" onclick="adminApp.toggleVisibility('${docSnap.id}', true)" title="Ocultar de la web"><i class="fas fa-eye-slash"></i> Ocultar</button>`;
-                                            } else {
-                                                return `<button class="btn btn-success" style="padding:5px 10px; font-size:0.8rem;" onclick="adminApp.toggleVisibility('${docSnap.id}', false)" title="Mostrar en la web"><i class="fas fa-eye"></i> Mostrar</button>`;
-                                            }
-                                        })()}
-                                        <button class="btn btn-primary" style="flex:1; padding:5px; font-size:0.8rem;" onclick="adminApp.openPropertyModal('${docSnap.id}')"><i class="fas fa-edit"></i> Editar</button>
-                                        <button class="btn btn-danger" style="padding: 5px 10px; font-size:0.8rem;" onclick="adminApp.deleteProperty('${docSnap.id}')"><i class="fas fa-trash"></i></button>
-
-                                        <button class="btn btn-primary" style="flex:1; padding:5px; font-size:0.8rem;" onclick="adminApp.openPropertyModal('${docSnap.id}')"><i class="fas fa-edit"></i> Editar</button>
-                                        <button class="btn btn-danger" style="padding: 5px 10px; font-size:0.8rem;" onclick="adminApp.deleteProperty('${docSnap.id}')"><i class="fas fa-trash"></i></button>
+                                    <small style="color:var(--primary); font-weight:bold; display:block; margin-bottom:5px;">${formatPrice(p.price)}</small>
+                                    
+                                    <!-- BOTONES EN GRID PARA EVITAR DESORDEN -->
+                                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 5px; margin-top:10px;">
+                                        <button class="btn ${visibilityBtnClass}" style="padding: 6px; font-size: 0.75rem; justify-content: center;" onclick="adminApp.toggleVisibility('${docSnap.id}', ${isVisible})" title="${visibilityTitle}">
+                                            <i class="fas ${visibilityIcon}"></i> <span style="display:none;">${visibilityText}</span>
+                                        </button>
+                                        <button class="btn btn-primary" style="padding: 6px; font-size: 0.75rem; justify-content: center;" onclick="adminApp.openPropertyModal('${docSnap.id}')">
+                                            <i class="fas fa-edit"></i> <span style="display:none;">Editar</span>
+                                        </button>
+                                        <button class="btn btn-danger" style="padding: 6px; font-size: 0.75rem; justify-content: center;" onclick="adminApp.deleteProperty('${docSnap.id}')">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
