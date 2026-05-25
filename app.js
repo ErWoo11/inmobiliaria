@@ -767,7 +767,7 @@ if (document.getElementById('admin-panel')) {
         // --- MENSAJES ---
         renderMessages: async () => {
             const container = document.getElementById('messages-container');
-            container.innerHTML = <p>Cargando...</p>';
+            container.innerHTML = <p>Cargando...</p>;
             try {
                 const q = query(collection(db, "messages"), orderBy("date", "desc");
                 const snap = await getDocs(q);
