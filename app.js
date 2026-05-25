@@ -423,6 +423,7 @@ if (document.getElementById('properties')) {
             
             const msgData = {
                 propName: document.getElementById('contact-prop-title').innerText,
+                propRef: app.currentContactRef,
                 clientName: document.getElementById('contact-name').value,
                 clientEmail: document.getElementById('contact-email').value,
                 clientPhone: document.getElementById('contact-phone').value,
@@ -438,7 +439,6 @@ if (document.getElementById('properties')) {
             } catch (err) { showToast('Error', 'error'); }
             finally { btn.disabled = false; btn.innerText = 'Enviar Solicitud'; }
         }
-    };
 
     document.getElementById('property-modal').addEventListener('click', (e) => { if (e.target.id === 'property-modal') app.closeModal(); });
     document.getElementById('contact-modal').addEventListener('click', (e) => { if (e.target.id === 'contact-modal') app.closeContactModal(); });
@@ -854,7 +854,7 @@ if (document.getElementById('admin-panel')) {
 
                 let html = '';
                 snap.forEach(d => {
-                    const m = d.data();
+                    const m = d.data(); // Objeto mensaje
                     const isRead = m.read === true;
                     const date = adminApp.formatSafeDate(m.date);
                     
@@ -868,7 +868,10 @@ if (document.getElementById('admin-panel')) {
                                 <h4>${m.clientName} <small>(${m.clientEmail})</small> ${!isRead ? '<span style="color:var(--accent); font-size:0.7rem;">NUEVO</span>' : ''}</h4>
                                 <p style="margin:5px 0; color:#444;">${m.message}</p>
                                 <small><i class="fas fa-phone"></i> ${m.clientPhone} • ${date}</small>
-                                <div style="font-size:0.8rem; color:var(--primary); margin-top:2px;">Interés: ${m.propName} ${m.propRef ? `(${m.propRef})` : ''}</div>
+                                <div style="font-size:0.8rem; color:var(--primary); margin-top:2px;">
+                                    Interés: ${m.propName} 
+                                    ${m.propRef ? `<span style="background:#e0f2fe; color:#0369a1; padding:0 4px; border-radius:4px; font-size:0.75rem; font-weight:bold;">Ref: ${m.propRef}</span>` : ''}
+                                </div>
                             </div>
                             <div style="text-align:right;">
                                 <div class="msg-actions">
@@ -919,10 +922,11 @@ if (document.getElementById('admin-panel')) {
                     name: msg.clientName,
                     email: msg.clientEmail,
                     phone: msg.clientPhone,
+                    // Usamos m.propRef (del mensaje) y si no existe, cadena vacía
                     notes: `Interés inicial en: ${msg.propName} ${msg.propRef ? `(${msg.propRef})` : ''}. Mensaje: "${msg.message}"`,
                     createdAt: new Date()
                 });
-                showToast('Cliente añadido a seguimiento');
+                showToast('Cliente añadido a seguir');
                 adminApp.renderMessages();
             } catch(e) { console.error(e); showToast('Error', 'error'); }
         },
