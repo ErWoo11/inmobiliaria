@@ -22,7 +22,7 @@ const formatPrice = (price) => {
 };
 
 // ==========================================
-// LÓGICA INDEX (CLIENTE) - ACTUALIZACIÓN EN TIEMPO REAL
+// LÓGICA INDEX (CLIENTE)
 // ==========================================
 if (document.getElementById('properties')) {
     const state = { 
@@ -31,67 +31,47 @@ if (document.getElementById('properties')) {
         currentImages: [], 
         currentSlide: 0,
         currentContactRef: null,
-        unsubProperties: null // Para detener el listener
+        unsubProperties: null
     };
 
-    // Función auxiliar para crear el HTML de una tarjeta
-    const createCard = (prop, index) => {
-        const delay = index * 100; 
-        const badgeClass = prop.type === 'rent' ? 'badge-rent' : 'badge-sale';
-        const badgeText = prop.type === 'rent' ? 'Alquiler' : 'Venta';
-        const mainImg = Array.isArray(prop.img) && prop.img.length > 0 ? prop.img[0] : (prop.img || 'https://picsum.photos/400/300');
-        const price = prop.period ? `${formatPrice(prop.price)} /${prop.period}` : formatPrice(prop.price);
+    // --- FUNCIÓN DE ESCUCHA EN TIEMPO REAL ---
+    const startRealtimeListener = () => {
+        console.log("Iniciando escucha en tiempo real...");
+        const q = query(collection(db, "properties"), orderBy("createdAt", "desc"));
         
-        const refDisplay = prop.ref ? `<span class="ref-badge">${prop.ref}</span>` : '';
-
-        // --- LÓGICA DE ESTADO (RESERVADO/VENDIDO) ---
-        let statusOverlay = '';
-        let imgClass = 'card-img';
-        
-        if (prop.status === 'reserved' || prop.status === 'sold') {
-            imgClass += ' img-grayscale'; 
-            const statusText = prop.status === 'reserved' ? 'RESERVADO' : 'VENDIDO';
-            const colorClass = prop.status === 'reserved' ? 'bg-reserved' : 'bg-sold';
-            statusOverlay = `<div class="status-overlay ${colorClass}">${statusText}</div>`;
+        if (state.unsubProperties) {
+            state.unsubProperties();
         }
 
-        return `
-            <div class="card" style="animation-delay: ${delay}ms" onclick="app.showDetail('${prop.id}')">
-                <div style="overflow: hidden; position: relative;">
-                    <img src="${mainImg}" class="${imgClass}" alt="${prop.title}" loading="lazy">
-                    ${statusOverlay}
-                    ${Array.isArray(prop.img) && prop.img.length > 1 ? `<span style="position:absolute; bottom:10px; right:10px; background:rgba(0,0,0,0.6); color:white; padding:2px 6px; border-radius:10px; font-size:0.7rem;"><i class="fas fa-images"></i> +${prop.img.length-1}</span>` : ''}
-                    <span class="badge ${badgeClass}" style="position: absolute; top: 15px; left: 15px; z-index: 10;">${badgeText}</span>
-                </div>
-                <div class="card-body">
-                    ${refDisplay}
-                    <div class="card-price">${price}</div>
-                    <h3 class="card-title">${prop.title}</h3>
-                    <div class="card-meta">
-                        <span><i class="fas fa-bed"></i> ${prop.beds} Hab.</span>
-                        <span><i class="fas fa-bath"></i> ${prop.baths} Baños</span>
-                        <span><i class="fas fa-map-marker-alt"></i> ${prop.location}</span>
-                    </div>
-                </div>
-            </div>
-        `;
+        state.unsubProperties = onSnapshot(q, (querySnapshot) => {
+            console.log("Actualización recibida de Firebase. Total documentos:", querySnapshot.size);
+            state.properties = []; 
+            querySnapshot.forEach((doc) => {
+                state.properties.push({ id: doc.id, ...doc.data() });
+            });
+            renderGrid();
+        }, (error) => {
+            console.error("Error en tiempo real:", error);
+            document.getElementById('properties-grid').innerHTML = '<p style="text-align:center; color:red;">Error de conexión en tiempo real.</p>';
+        });
     };
 
-    // --- FUNCIÓN DE RENDERIZADO ACTUALIZADA ---
+    // --- FUNCIÓN DE RENDERIZADO ---
     const renderGrid = () => {
+        console.log("Renderizando grid. Propiedades en estado:", state.properties.length);
         const grid = document.getElementById('properties-grid');
         
         let html = '';
         let counter = 0;
         
         state.properties.forEach((data) => {
-            // 1. Filtro Principal (Rent/Sale/All)
+            // 1. Filtro Principal
             if (state.filter === 'all' || data.type === state.filter) {
                 
-                // 2. FILTRO DE VISIBILIDAD (Si es false, no mostrar nada)
+                // 2. Filtro de Visibilidad
                 if (data.visible === false) return;
 
-                // 3. Filtros Secundarios (Provincia / Ciudad)
+                // 3. Filtros Secundarios
                 let matchSecondary = true;
                 const prov = (data.province || '').toLowerCase();
                 const city = (data.city || '').toLowerCase();
@@ -147,29 +127,7 @@ if (document.getElementById('properties')) {
         grid.innerHTML = html || '<p style="text-align:center; grid-column:1/-1; color:#888;">No hay propiedades con estos filtros.</p>';
     };
 
-    // --- FUNCIÓN DE ESCUCHA EN TIEMPO REAL (onSnapshot) ---
-    const startRealtimeListener = () => {
-        const q = query(collection(db, "properties"), orderBy("createdAt", "desc"));
-        
-        // Si ya existe un listener, lo eliminamos para evitar duplicados
-        if (state.unsubProperties) state.unsubProperties();
-
-        // Iniciar nuevo listener
-        state.unsubProperties = onSnapshot(q, (querySnapshot) => {
-            state.properties = []; 
-            querySnapshot.forEach((doc) => {
-                state.properties.push({ id: doc.id, ...doc.data() });
-            });
-            
-            // Cada vez que haya cambios en la BD, se ejecuta esto:
-            console.log("Actualización recibida de Firebase");
-            renderGrid();
-        }, (error) => {
-            console.error("Error en tiempo real:", error);
-            document.getElementById('properties-grid').innerHTML = '<p style="text-align:center; color:red;">Error de conexión en tiempo real.</p>';
-        });
-    };
-
+    // --- APP PUBLICA ---
     window.app = {
         secondaryFilters: {
             province: '',
@@ -177,10 +135,14 @@ if (document.getElementById('properties')) {
         },
 
         init: () => {
-            // Verificar que el DOM esté listo
+            console.log("App iniciada");
             if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', app.init);
+                document.addEventListener('DOMContentLoaded', () => {
+                    console.log("DOM Cargado. Iniciando Listener...");
+                    startRealtimeListener();
+                });
             } else {
+                console.log("DOM ya listo. Iniciando Listener...");
                 startRealtimeListener();
             }
         },
@@ -190,7 +152,6 @@ if (document.getElementById('properties')) {
             document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
             if(event && event.target) event.target.classList.add('active');
             
-            // Resetear filtros secundarios
             app.secondaryFilters.province = '';
             app.secondaryFilters.city = '';
             
@@ -244,64 +205,51 @@ if (document.getElementById('properties')) {
             container.style.display = 'flex';
             container.className = 'filter-bar';
 
-            // Wrapper para Provincia
             if (provinces.length > 0) {
                 const groupProv = document.createElement('div');
                 groupProv.className = 'filter-group';
-                
                 const labelProv = document.createElement('label');
                 labelProv.innerText = 'Provincia';
-                
                 const provSelect = document.createElement('select');
                 provSelect.className = 'filter-input';
-                provSelect.id = 'index-filter-prov'; 
+                provSelect.id = 'index-filter-prov';
                 provSelect.innerHTML = `<option value="">Todas</option>` + 
                     provinces.map(p => `<option value="${p}">${p}</option>`).join('');
-                
                 provSelect.addEventListener('change', (e) => {
                     app.secondaryFilters.province = e.target.value;
                     renderGrid();
                 });
-
                 groupProv.appendChild(labelProv);
                 groupProv.appendChild(provSelect);
                 container.appendChild(groupProv);
             }
 
-            // Wrapper para Población
             if (cities.length > 0) {
                 const groupCity = document.createElement('div');
                 groupCity.className = 'filter-group';
-
                 const labelCity = document.createElement('label');
                 labelCity.innerText = 'Población';
-
                 const citySelect = document.createElement('select');
                 citySelect.className = 'filter-input';
                 citySelect.id = 'index-filter-city';
                 citySelect.innerHTML = `<option value="">Todas</option>` + 
                     cities.map(c => `<option value="${c}">${c}</option>`).join('');
-
                 citySelect.addEventListener('change', (e) => {
                     app.secondaryFilters.city = e.target.value;
                     renderGrid();
                 });
-
                 groupCity.appendChild(labelCity);
                 groupCity.appendChild(citySelect);
                 container.appendChild(groupCity);
             }
 
-            // Botón Limpiar
             const clearGroup = document.createElement('div');
             clearGroup.className = 'filter-group';
             clearGroup.style.display = 'flex';
             clearGroup.style.alignItems = 'flex-end';
-
             const clearBtn = document.createElement('button');
             clearBtn.className = 'btn-clear';
             clearBtn.innerText = 'Limpiar';
-            
             clearBtn.onclick = () => {
                 app.secondaryFilters.province = '';
                 app.secondaryFilters.city = '';
@@ -311,7 +259,6 @@ if (document.getElementById('properties')) {
                 if(cSelect) cSelect.value = "";
                 renderGrid();
             };
-
             clearGroup.appendChild(clearBtn);
             container.appendChild(clearGroup);
         },
@@ -328,7 +275,6 @@ if (document.getElementById('properties')) {
             document.getElementById('modal-title').innerText = property.title;
             document.getElementById('modal-price').innerText = priceText;
             
-            // ACTUALIZAR UBICACIÓN EN EL MODAL
             let fullLocation = '';
             if (property.city) fullLocation = `${property.city}, ${property.province}`;
             else if (property.province) fullLocation = property.province;
@@ -437,6 +383,7 @@ if (document.getElementById('properties')) {
 
     document.getElementById('property-modal').addEventListener('click', (e) => { if (e.target.id === 'property-modal') app.closeModal(); });
     document.getElementById('contact-modal').addEventListener('click', (e) => { if (e.target.id === 'contact-modal') app.closeContactModal(); });
+    document.addEventListener('DOMContentLoaded', app.init); // Iniciar al cargar
 }
 
 // ==========================================
@@ -466,15 +413,14 @@ if (document.getElementById('admin-panel')) {
 
         // --- FUNCIÓN PARA MOSTRAR/OCULTAR ---
         toggleVisibility: async (id, currentState) => {
-            const newState = !currentState; // Invertir estado
+            const newState = !currentState; 
             try {
                 await updateDoc(doc(db, "properties", id), { visible: newState });
-                // Mostrar feedback visual
-                showToast(newState ? 'Inmueble visible en web' : 'Inmueble oculto en web', 'success');
+                showToast(newState ? 'Visible' : 'Oculto');
                 adminApp.renderInmuebles();
             } catch (error) {
                 console.error(error);
-                showToast('Error al cambiar visibilidad', 'error');
+                showToast('Error', 'error');
             }
         },
 
@@ -625,11 +571,8 @@ if (document.getElementById('admin-panel')) {
                     docSnap.forEach(d => { if(d.id === id) prop = {id: d.id, ...d.data()}; });
                     
                     if(prop) {
-                        // --- CORRECCIÓN: Usar 'prop' en lugar de 'p' ---
                         const isVisible = prop.visible !== false; 
                         document.getElementById('visible').checked = isVisible;
-                        // ---------------------------------------------
-
                         document.getElementById('edit-id').value = prop.id;
                         document.getElementById('ref-number').value = prop.ref || "N/A";
                         document.getElementById('title').value = prop.title;
@@ -639,13 +582,10 @@ if (document.getElementById('admin-panel')) {
                         document.getElementById('status').value = prop.status || 'available';
                         document.getElementById('category').value = prop.category;
                         
-                        // LÓGICA DE MIGRACIÓN Y CARGA DE DATOS
                         if (prop.province && prop.city) {
-                            // Datos nuevos (separados)
                             document.getElementById('province').value = prop.province;
                             document.getElementById('city').value = prop.city;
                         } else if (prop.location) {
-                            // Datos antiguos (campo único "Ubicación")
                             const parts = prop.location.split(',');
                             if (parts.length > 1) {
                                 document.getElementById('city').value = parts[0].trim();
@@ -713,7 +653,7 @@ if (document.getElementById('admin-panel')) {
                 let count = 0;
 
                 snapshot.forEach(docSnap => {
-                    const p = docSnap.data(); // LA VARIABLE SE LLAMA 'p'
+                    const p = docSnap.data(); 
                     let match = true;
                     
                     if (fRef && (!p.ref || !p.ref.toLowerCase().includes(fRef))) match = false;
@@ -738,14 +678,12 @@ if (document.getElementById('admin-panel')) {
                         if (status === 'reserved') { statusLabel = 'Reservado'; statusClass = 'reserved'; }
                         else if (status === 'sold') { statusLabel = 'Vendido'; statusClass = 'sold'; }
 
-                        // Lógica para determinar estado de visibilidad
                         const isVisible = p.visible !== false;
                         const visibilityBtnClass = isVisible ? 'btn-warning' : 'btn-success';
                         const visibilityIcon = isVisible ? 'fa-eye-slash' : 'fa-eye';
                         const visibilityText = isVisible ? 'Ocultar' : 'Mostrar';
                         const visibilityTitle = isVisible ? 'Ocultar de la web' : 'Mostrar en la web';
 
-                        // Generar HTML de la tarjeta
                         html += `
                             <div class="card" style="padding:15px; display:flex; flex-direction:column; justify-content:space-between;">
                                 <div style="position:relative;">
@@ -757,7 +695,6 @@ if (document.getElementById('admin-panel')) {
                                     <div style="margin-bottom:8px;"><span class="status-badge ${statusClass}">${statusLabel}</span></div>
                                     <small style="color:var(--primary); font-weight:bold; display:block; margin-bottom:5px;">${formatPrice(p.price)}</small>
                                     
-                                    <!-- BOTONES EN GRID -->
                                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 5px; margin-top:10px;">
                                         <button class="btn ${visibilityBtnClass}" style="padding: 6px; font-size: 0.75rem; justify-content: center;" onclick="adminApp.toggleVisibility('${docSnap.id}', ${isVisible})" title="${visibilityTitle}">
                                             <i class="fas ${visibilityIcon}"></i> <span style="display:none;">${visibilityText}</span>
@@ -805,7 +742,6 @@ if (document.getElementById('admin-panel')) {
                 baths: Number(document.getElementById('baths').value),
                 img: imagesArray,
                 desc: document.getElementById('desc').value,
-                // LEER ESTADO DEL CHECKBOX
                 visible: document.getElementById('visible').checked,
             };
 
@@ -825,7 +761,7 @@ if (document.getElementById('admin-panel')) {
 
         deleteProperty: async (id) => {
             if(!confirm('¿Eliminar inmueble?')) return;
-            try { await deleteDoc(doc(db, "properties", id)); showToast('Eliminado'); adminApp.renderInmuebles(); } catch(e) { showToast('Error', 'error'); }
+            try { await deleteDoc(doc(db, "properties", id)); showToast('Eliminado'); adminApp.renderInmuebles(); } catch(e) { showToast('error', 'error'); }
         },
 
         // --- MENSAJES ---
@@ -848,7 +784,7 @@ if (document.getElementById('admin-panel')) {
 
                 let html = '';
                 snap.forEach(d => {
-                    const m = d.data(); // Objeto mensaje
+                    const m = d.data();
                     const isRead = m.read === true;
                     const date = adminApp.formatSafeDate(m.date);
                     
@@ -916,7 +852,6 @@ if (document.getElementById('admin-panel')) {
                     name: msg.clientName,
                     email: msg.clientEmail,
                     phone: msg.clientPhone,
-                    // Usamos m.propRef (del mensaje) y si no existe, cadena vacía
                     notes: `Interés inicial en: ${msg.propName} ${msg.propRef ? `(${msg.propRef})` : ''}. Mensaje: "${msg.message}"`,
                     createdAt: new Date()
                 });
