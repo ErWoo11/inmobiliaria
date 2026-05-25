@@ -769,7 +769,7 @@ if (document.getElementById('admin-panel')) {
             const container = document.getElementById('messages-container');
             container.innerHTML = '<p>Cargando...</p>';
             try {
-                const q = query(collection(db, "messages"), orderBy("date", "desc");
+                const q = query(collection(db, "messages"), orderBy("date", "desc"));
                 const snap = await getDocs(q);
                 
                 const cSnap = await getDocs(collection(db, "clients"));
@@ -792,19 +792,15 @@ if (document.getElementById('admin-panel')) {
                     const addBtnState = isTracked ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : `onclick="adminApp.addToTracking('${d.id}')"`;
                     const addBtnText = isTracked ? 'En Seguimiento' : 'Añadir a Seguimiento';
 
-                    // --- CORRECCIÓN: Evitar duplicados visuales de referencia ---
-                    const refPattern = /\(REF-[\w-]+-\d{4}\)/; // Busca el patrón REF-XXXX-XXXX
-                    const hasRefInTitle = refPattern.test(m.propName);
-
                     html += `
                         <div class="message-item ${isRead ? 'read' : 'unread'}">
                             <div class="msg-info">
-                                <h4>${m.clientName} <small>(${m.clientEmail})</small> ${!isRead ? '<span style="color: var(--accent); font-size:0.7rem;">NUEVO</span>' : ''}</h4>
+                                <h4>${m.clientName} <small>(${m.clientEmail})</small> ${!isRead ? '<span style="color:var(--accent); font-size:0.7rem;">NUEVO</span>' : ''}</h4>
                                 <p style="margin:5px 0; color:#444;">${m.message}</p>
                                 <small><i class="fas fa-phone"></i> ${m.clientPhone} • ${date}</small>
                                 <div style="font-size:0.8rem; color:var(--primary); margin-top:2px;">
-                                    Interés: ${m.propName}
-                                    ${!hasRefInTitle && m.propRef ? `<span style="background:#e0f2fe; color:#0369a1; padding:0 4px; border-radius:4px; font-weight:bold;">Ref: ${m.propRef}</span>` : ''}
+                                    Interés: ${m.propName} 
+                                    ${m.propRef ? `<span style="background:#e0f2fe; color:#0369a1; padding:0 4px; border-radius:4px; font-size:0.75rem; font-weight:bold;">Ref: ${m.propRef}</span>` : ''}
                                 </div>
                             </div>
                             <div style="text-align:right;">
