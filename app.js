@@ -177,7 +177,12 @@ if (document.getElementById('properties')) {
         },
 
         init: () => {
-            startRealtimeListener();
+            // Verificar que el DOM esté listo
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', app.init);
+            } else {
+                startRealtimeListener();
+            }
         },
 
         filter: (type) => {
@@ -197,7 +202,6 @@ if (document.getElementById('properties')) {
             const container = document.getElementById('dynamic-filters');
             container.innerHTML = ''; 
 
-            // 1. Filtrar propiedades actuales para saber qué opciones mostrar
             const currentProps = state.properties.filter(p => 
                 state.filter === 'all' || p.type === state.filter
             );
@@ -207,12 +211,10 @@ if (document.getElementById('properties')) {
                 return;
             }
 
-            // 2. Extraer Provincias y Ciudades
             const provincesSet = new Set();
             const citiesSet = new Set();
 
             currentProps.forEach(p => {
-                // Buscar en los campos nuevos o en el antiguo 'location'
                 const prov = p.province || '';
                 const city = p.city || '';
                 const loc = p.location || '';
@@ -220,7 +222,6 @@ if (document.getElementById('properties')) {
                 if (prov) provincesSet.add(prov);
                 if (city) citiesSet.add(city);
                 
-                // Si solo existe el antiguo campo location (migración)
                 if (!prov && !city && loc) {
                     const parts = loc.split(',');
                     if (parts.length > 1) {
@@ -241,10 +242,8 @@ if (document.getElementById('properties')) {
             }
 
             container.style.display = 'flex';
-            container.className = 'filter-bar'; // APLICAR CLASE DE ADMIN
+            container.className = 'filter-bar';
 
-            // --- GENERAR SELECTS CON ESTILO DE ADMIN ---
-            
             // Wrapper para Provincia
             if (provinces.length > 0) {
                 const groupProv = document.createElement('div');
@@ -255,7 +254,7 @@ if (document.getElementById('properties')) {
                 
                 const provSelect = document.createElement('select');
                 provSelect.className = 'filter-input';
-                provSelect.id = 'index-filter-prov'; // ID único para referenciar
+                provSelect.id = 'index-filter-prov'; 
                 provSelect.innerHTML = `<option value="">Todas</option>` + 
                     provinces.map(p => `<option value="${p}">${p}</option>`).join('');
                 
@@ -296,7 +295,6 @@ if (document.getElementById('properties')) {
             // Botón Limpiar
             const clearGroup = document.createElement('div');
             clearGroup.className = 'filter-group';
-            // Alinear el botón al final
             clearGroup.style.display = 'flex';
             clearGroup.style.alignItems = 'flex-end';
 
@@ -304,17 +302,13 @@ if (document.getElementById('properties')) {
             clearBtn.className = 'btn-clear';
             clearBtn.innerText = 'Limpiar';
             
-            // SOLUCIÓN AL ERROR: En lugar de intentar modificar el DOM directo,
-            // simplemente volvemos a ejecutar el filtro con valores vacíos.
             clearBtn.onclick = () => {
                 app.secondaryFilters.province = '';
                 app.secondaryFilters.city = '';
-                // Actualizar los selects visuales (si existen)
                 const pSelect = document.getElementById('index-filter-prov');
                 const cSelect = document.getElementById('index-filter-city');
                 if(pSelect) pSelect.value = "";
                 if(cSelect) cSelect.value = "";
-                
                 renderGrid();
             };
 
@@ -347,7 +341,7 @@ if (document.getElementById('properties')) {
             document.getElementById('modal-desc').innerText = property.desc || "Sin descripción.";
             
             const badgeEl = document.getElementById('modal-badge');
-            badgeEl.className = property.type === 'rent' ? 'badge badge-rent' : 'badge badge-sale';
+            badgeEl.className = property.type === 'rent' ? 'badge badge-rent' : 'badge-sale';
             badgeEl.innerText = property.type === 'rent' ? 'Alquiler Vacacional' : 'En Venta';
 
             document.getElementById('property-modal').classList.add('open');
@@ -439,11 +433,10 @@ if (document.getElementById('properties')) {
             } catch (err) { showToast('Error', 'error'); }
             finally { btn.disabled = false; btn.innerText = 'Enviar Solicitud'; }
         }
+    };
 
     document.getElementById('property-modal').addEventListener('click', (e) => { if (e.target.id === 'property-modal') app.closeModal(); });
     document.getElementById('contact-modal').addEventListener('click', (e) => { if (e.target.id === 'contact-modal') app.closeContactModal(); });
-    document.addEventListener('DOMContentLoaded', app.init);
-}
 
 // ==========================================
 // LÓGICA ADMIN
