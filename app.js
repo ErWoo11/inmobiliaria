@@ -77,7 +77,7 @@ if (document.getElementById('properties')) {
         `;
     };
 
-    // --- FUNCIÓN DE RENDERIZADO (Actualiza el HTML) ---
+    // --- FUNCIÓN DE RENDERIZADO ACTUALIZADA ---
     const renderGrid = () => {
         const grid = document.getElementById('properties-grid');
         
@@ -85,10 +85,13 @@ if (document.getElementById('properties')) {
         let counter = 0;
         
         state.properties.forEach((data) => {
-            // 1. Filtro Principal
+            // 1. Filtro Principal (Rent/Sale/All)
             if (state.filter === 'all' || data.type === state.filter) {
                 
-                // 2. Filtros Secundarios
+                // 2. FILTRO DE VISIBILIDAD (Si es false, no mostrar nada)
+                if (data.visible === false) return;
+
+                // 3. Filtros Secundarios (Provincia / Ciudad)
                 let matchSecondary = true;
                 const prov = (data.province || '').toLowerCase();
                 const city = (data.city || '').toLowerCase();
@@ -96,15 +99,12 @@ if (document.getElementById('properties')) {
                 const filterProv = app.secondaryFilters.province.toLowerCase();
                 const filterCity = app.secondaryFilters.city.toLowerCase();
 
-                // Buscar en campos nuevos o en el antiguo location por compatibilidad
                 if (filterProv && !prov.includes(filterProv) && !oldLoc.includes(filterProv)) matchSecondary = false;
                 if (filterCity && !city.includes(filterCity) && !oldLoc.includes(filterCity)) matchSecondary = false;
 
                 if (matchSecondary) {
-                    // ACTUALIZAR VISUALIZACIÓN EN TARJETA
                     const displayLoc = data.city ? `${data.city}, ${data.province}` : (data.province || data.location);
                     
-                    // Copiamos la lógica de createCard aquí para inyectar la ubicación correcta
                     const delay = counter * 100; 
                     const badgeClass = data.type === 'rent' ? 'badge-rent' : 'badge-sale';
                     const badgeText = data.type === 'rent' ? 'Alquiler' : 'Venta';
@@ -470,6 +470,20 @@ if (document.getElementById('admin-panel')) {
             });
         },
 
+        // --- FUNCIÓN PARA MOSTRAR/OCULTAR ---
+        toggleVisibility: async (id, currentState) => {
+            const newState = !currentState; // Invertir estado
+            try {
+                await updateDoc(doc(db, "properties", id), { visible: newState });
+                // Mostrar feedback visual
+                showToast(newState ? 'Inmueble visible en web' : 'Inmueble oculto en web', 'success');
+                adminApp.renderInmuebles();
+            } catch (error) {
+                console.error(error);
+                showToast('Error al cambiar visibilidad', 'error');
+            }
+        },
+
         // --- GESTIÓN DE SESIÓN ---
         checkSession: () => {
             const session = sessionStorage.getItem('adminSession');
@@ -617,6 +631,9 @@ if (document.getElementById('admin-panel')) {
                     docSnap.forEach(d => { if(d.id === id) prop = {id: d.id, ...d.data()}; });
                     
                     if(prop) {
+                        // CARGAR ESTADO VISIBILIDAD
+                        const isVisible = p.visible !== false; // Por defecto true
+                        document.getElementById('visible').checked = isVisible;
                         document.getElementById('edit-id').value = prop.id;
                         document.getElementById('ref-number').value = prop.ref || "N/A";
                         document.getElementById('title').value = prop.title;
@@ -740,6 +757,18 @@ if (document.getElementById('admin-panel')) {
                                     </div>
                                     <small style="color:var(--primary); font-weight:bold;">${formatPrice(p.price)}</small>
                                     <div style="margin-top:10px; display:flex; gap:10px;">
+                                        <!-- Lógica para saber si está visible (por defecto true si el campo no existe) -->
+                                        ${(() => {
+                                            const isVisible = p.visible !== false; 
+                                            if (isVisible) {
+                                                return `<button class="btn btn-warning" style="padding:5px 10px; font-size:0.8rem;" onclick="adminApp.toggleVisibility('${docSnap.id}', true)" title="Ocultar de la web"><i class="fas fa-eye-slash"></i> Ocultar</button>`;
+                                            } else {
+                                                return `<button class="btn btn-success" style="padding:5px 10px; font-size:0.8rem;" onclick="adminApp.toggleVisibility('${docSnap.id}', false)" title="Mostrar en la web"><i class="fas fa-eye"></i> Mostrar</button>`;
+                                            }
+                                        })()}
+                                        <button class="btn btn-primary" style="flex:1; padding:5px; font-size:0.8rem;" onclick="adminApp.openPropertyModal('${docSnap.id}')"><i class="fas fa-edit"></i> Editar</button>
+                                        <button class="btn btn-danger" style="padding: 5px 10px; font-size:0.8rem;" onclick="adminApp.deleteProperty('${docSnap.id}')"><i class="fas fa-trash"></i></button>
+
                                         <button class="btn btn-primary" style="flex:1; padding:5px; font-size:0.8rem;" onclick="adminApp.openPropertyModal('${docSnap.id}')"><i class="fas fa-edit"></i> Editar</button>
                                         <button class="btn btn-danger" style="padding: 5px 10px; font-size:0.8rem;" onclick="adminApp.deleteProperty('${docSnap.id}')"><i class="fas fa-trash"></i></button>
                                     </div>
@@ -779,6 +808,8 @@ if (document.getElementById('admin-panel')) {
                 baths: Number(document.getElementById('baths').value),
                 img: imagesArray,
                 desc: document.getElementById('desc').value,
+                // LEER ESTADO DEL CHECKBOX
+                visible: document.getElementById('visible').checked,
             };
 
             try {
