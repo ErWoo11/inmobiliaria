@@ -800,7 +800,7 @@ if (document.getElementById('admin-panel')) {
                                 <small><i class="fas fa-phone"></i> ${m.clientPhone} • ${date}</small>
                                 <div style="font-size:0.8rem; color:var(--primary); margin-top:2px;">
                                     Interés: ${m.propName} 
-                                    ${m.propRef ? `<span style="background:#e0f2fe; color:#0369a1; padding:0 4px; border-radius:4px; font-size:0.75rem; font-weight:bold;">Ref: ${m.propRef}</span>` : ''}
+                                    `<span style="background:#e0f2fe; color:#0369a1; padding:0 4px; border-radius:4px; font-size:0.75rem; font-weight:bold;">Ref: ${m.propRef}</span>` : ''}
                                 </div>
                             </div>
                             <div style="text-align:right;">
@@ -852,7 +852,7 @@ if (document.getElementById('admin-panel')) {
                     name: msg.clientName,
                     email: msg.clientEmail,
                     phone: msg.clientPhone,
-                    notes: `Interés inicial en: ${msg.propName} ${msg.propRef ? `(${msg.propRef})` : ''}. Mensaje: "${msg.message}"`,
+                    notes: `Interés inicial en: ${msg.propName} `(${msg.propRef})` : ''}. Mensaje: "${msg.message}"`,
                     createdAt: new Date()
                 });
                 showToast('Cliente añadido a seguir');
