@@ -437,6 +437,7 @@ if (document.getElementById('properties')) {
 
     document.getElementById('property-modal').addEventListener('click', (e) => { if (e.target.id === 'property-modal') app.closeModal(); });
     document.getElementById('contact-modal').addEventListener('click', (e) => { if (e.target.id === 'contact-modal') app.closeContactModal(); });
+}
 
 // ==========================================
 // LÓGICA ADMIN
