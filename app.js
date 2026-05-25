@@ -747,7 +747,7 @@ if (document.getElementById('admin-panel')) {
                         else if (status === 'sold') { statusLabel = 'Vendido'; statusClass = 'sold'; }
 
                         // Lógica para determinar estado de visibilidad
-                        const isVisible = p.visible !== false;
+			const isVisible = prop.visible !== false;
                         const visibilityBtnClass = isVisible ? 'btn-warning' : 'btn-success';
                         const visibilityIcon = isVisible ? 'fa-eye-slash' : 'fa-eye';
                         const visibilityText = isVisible ? 'Ocultar' : 'Mostrar';
