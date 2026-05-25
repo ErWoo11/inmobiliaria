@@ -719,7 +719,7 @@ if (document.getElementById('admin-panel')) {
                 let count = 0;
 
                 snapshot.forEach(docSnap => {
-                    const p = docSnap.data();
+                    const p = docSnap.data(); // LA VARIABLE SE LLAMA 'p'
                     let match = true;
                     
                     if (fRef && (!p.ref || !p.ref.toLowerCase().includes(fRef))) match = false;
@@ -745,7 +745,7 @@ if (document.getElementById('admin-panel')) {
                         else if (status === 'sold') { statusLabel = 'Vendido'; statusClass = 'sold'; }
 
                         // Lógica para determinar estado de visibilidad
-			const isVisible = prop.visible !== false;
+                        const isVisible = p.visible !== false;
                         const visibilityBtnClass = isVisible ? 'btn-warning' : 'btn-success';
                         const visibilityIcon = isVisible ? 'fa-eye-slash' : 'fa-eye';
                         const visibilityText = isVisible ? 'Ocultar' : 'Mostrar';
@@ -763,7 +763,7 @@ if (document.getElementById('admin-panel')) {
                                     <div style="margin-bottom:8px;"><span class="status-badge ${statusClass}">${statusLabel}</span></div>
                                     <small style="color:var(--primary); font-weight:bold; display:block; margin-bottom:5px;">${formatPrice(p.price)}</small>
                                     
-                                    <!-- BOTONES EN GRID PARA EVITAR DESORDEN -->
+                                    <!-- BOTONES EN GRID -->
                                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 5px; margin-top:10px;">
                                         <button class="btn ${visibilityBtnClass}" style="padding: 6px; font-size: 0.75rem; justify-content: center;" onclick="adminApp.toggleVisibility('${docSnap.id}', ${isVisible})" title="${visibilityTitle}">
                                             <i class="fas ${visibilityIcon}"></i> <span style="display:none;">${visibilityText}</span>
